@@ -65,6 +65,10 @@ Spider 不负责：
 
 当前 Email 模块不下载附件、不生成 HTML 邮件、不自动发送邮件，也不把 Gmail refresh token 传给 Dify。
 
+## 接口文档
+
+完整的客户端接口、鉴权方式、请求响应字段和错误码见 [`docs/api/README.md`](docs/api/README.md)。
+
 ## 运行
 
 需要 Go 1.24+、Google Cloud OAuth Client 和已发布的 Dify Workflow。
@@ -78,98 +82,7 @@ go test ./...
 go run ./cmd/spider-mail
 ```
 
-Google OAuth Client 的 redirect URI 应与 `GMAIL_REDIRECT_URL` 完全一致。服务默认监听 `127.0.0.1:8080`，避免无意暴露到局域网。
-
-## Email：Gmail 授权
-
-除 `/health` 和 Google 回调外，所有接口都需要：
-
-```http
-Authorization: Bearer <SPIDER_API_KEY>
-```
-
-先请求只读授权：
-
-```bash
-curl -H "Authorization: Bearer $SPIDER_API_KEY" \
-  http://127.0.0.1:8080/v1/oauth/gmail/start
-```
-
-在浏览器打开返回的 `authorization_url`。准备启用发送时，请求增量授权：
-
-```bash
-curl -H "Authorization: Bearer $SPIDER_API_KEY" \
-  'http://127.0.0.1:8080/v1/oauth/gmail/start?send=true'
-```
-
-## Email HTTP API
-
-### 线程列表
-
-```http
-GET /v1/email/threads?query=is:inbox&page_size=25&page_token=...
-```
-
-列表只返回摘要。要读取正文，必须获取完整线程：
-
-```http
-GET /v1/email/threads/{thread_id}
-```
-
-### 生成草稿
-
-```http
-POST /v1/email/drafts
-Content-Type: application/json
-
-{
-  "thread_id": "18f...",
-  "user_instruction": "礼貌确认，说明周二下午可以",
-  "preferred_language": "auto",
-  "tone_profile": "concise-professional",
-  "user_signature": "Lin"
-}
-```
-
-服务会获取完整线程并把经过大小限制的 JSON 上下文交给 Dify。返回示例：
-
-```json
-{
-  "id": "8a7...",
-  "thread_id": "18f...",
-  "should_reply": true,
-  "subject": "Re: Tuesday review",
-  "body_text": "Hi Tim, ...",
-  "confidence": 0.86,
-  "warnings": [],
-  "needs_human_input": false,
-  "workflow_run_id": "run-...",
-  "created_at": "2026-09-10T06:00:00Z"
-}
-```
-
-### 人工确认发送
-
-客户端应使用用户最终编辑后的内容调用发送接口，不应直接复用未展示的模型结果。
-
-```http
-POST /v1/email/send
-Content-Type: application/json
-
-{
-  "draft_id": "8a7...",
-  "thread_id": "18f...",
-  "to": [{"name": "Tim", "email": "tim@example.com"}],
-  "subject": "Re: Tuesday review",
-  "body_text": "Hi Tim, Tuesday afternoon works for me.",
-  "in_reply_to": "<message-id@example.com>",
-  "references": ["<earlier@example.com>", "<message-id@example.com>"],
-  "idempotency_key": "client-generated-uuid",
-  "human_confirmed": true
-}
-```
-
-相同 `idempotency_key` 会返回第一次发送的 receipt，不会再次调用 Gmail。
+Google OAuth Client 的 redirect URI 应与 `GMAIL_REDIRECT_URL` 完全一致。服务默认监听 `127.0.0.1:8080`，避免无意暴露到局域网。Gmail 授权和接口调用方式统一维护在接口文档中。
 
 ## Email Draft Workflow 合约
 
