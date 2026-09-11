@@ -58,6 +58,7 @@ type ThreadPage struct {
 type DraftRequest struct {
 	ThreadID          string `json:"thread_id"`
 	UserInstruction   string `json:"user_instruction,omitempty"`
+	PreviousDraft     string `json:"previous_draft,omitempty"`
 	PreferredLanguage string `json:"preferred_language,omitempty"`
 	ToneProfile       string `json:"tone_profile,omitempty"`
 	UserSignature     string `json:"user_signature,omitempty"`

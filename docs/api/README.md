@@ -10,7 +10,7 @@
 - JSON 请求体上限：1 MiB
 - JSON 请求包含未声明字段时返回 `400 invalid_json`
 
-除 `GET /health` 和 Google OAuth 回调外，所有接口都需要 Bearer Token：
+本机开发且 Spider 仅监听回环地址时，可以不配置 API key。监听任何非回环地址时，除 `GET /health` 和 Google OAuth 回调外，所有接口都需要 Bearer Token：
 
 ```http
 Authorization: Bearer <SPIDER_API_KEY>
@@ -22,7 +22,7 @@ Authorization: Bearer <SPIDER_API_KEY>
 | --- | --- | --- | --- |
 | `GET` | `/health` | 否 | 服务及 Gmail 连接状态 |
 | `GET` | `/v1/oauth/gmail/start` | 是 | 创建 Gmail OAuth 授权地址 |
-| `GET` | `/v1/oauth/gmail/callback` | 否 | Google OAuth 回调 |
+| `GET` | `/auth/google/callback` | 否 | Google OAuth 回调 |
 | `GET` | `/v1/oauth/gmail/status` | 是 | 查询 Gmail 是否已连接 |
 | `GET` | `/v1/email/threads` | 是 | 查询邮件线程摘要列表 |
 | `GET` | `/v1/email/threads/{thread_id}` | 是 | 获取完整邮件线程 |
@@ -83,7 +83,7 @@ Spider 自身产生的 API 错误使用统一 JSON 结构：
 | --- | --- | --- | --- |
 | `send` | boolean | 否 | 仅值为 `true` 时增量申请 Gmail 发送权限；否则只申请读取权限 |
 
-请求示例：
+请求示例（配置了 API key 时保留 Authorization；本机无 key 开发时可省略该 header）：
 
 ```bash
 curl -H "Authorization: Bearer $SPIDER_API_KEY" \
@@ -100,9 +100,11 @@ curl -H "Authorization: Bearer $SPIDER_API_KEY" \
 
 客户端应在浏览器中打开 `authorization_url`。
 
-### `GET /v1/oauth/gmail/callback`
+### `GET /auth/google/callback`
 
 Google OAuth 的重定向地址，由 Google 调用，不要求 Spider Bearer Token。
+
+旧路径 `/v1/oauth/gmail/callback` 暂时保留兼容，但新配置统一使用 `/auth/google/callback`。
 
 查询参数：
 
@@ -215,6 +217,7 @@ curl -H "Authorization: Bearer $SPIDER_API_KEY" \
 | --- | --- | --- | --- |
 | `thread_id` | string | 是 | 用于生成草稿的 Gmail 线程 ID |
 | `user_instruction` | string | 否 | 用户对草稿的要求 |
+| `previous_draft` | string | 否 | 前端当前可见的草稿（含手动编辑），用于按反馈改写 |
 | `preferred_language` | string | 否 | 偏好语言，例如 `auto` |
 | `tone_profile` | string | 否 | 语气配置，例如 `concise-professional` |
 | `user_signature` | string | 否 | 用户签名 |

@@ -61,7 +61,7 @@ Spider 不负责：
 - 纯文本回复，正确设置 `threadId`、`In-Reply-To` 和 `References`
 - 发送前强制人工确认，并用持久化幂等键防止重试造成重复发送
 - JSONL 审计记录 Dify run id、原始草稿、最终内容和发送结果
-- API Bearer Token 保护；OAuth token 和 Dify key 只存在于服务端
+- 非本机部署使用 API Bearer Token 保护；OAuth token 和 Dify key 只存在于服务端
 
 当前 Email 模块不下载附件、不生成 HTML 邮件、不自动发送邮件，也不把 Gmail refresh token 传给 Dify。
 
@@ -71,7 +71,7 @@ Spider 不负责：
 
 ## 运行
 
-需要 Go 1.24+、Google Cloud OAuth Client 和已发布的 Dify Workflow。
+需要 Go 1.24+ 和 Google Cloud OAuth Client。只查阅邮件时不需要 Dify Workflow。
 
 ```bash
 cp .env.example .env
@@ -82,7 +82,7 @@ go test ./...
 go run ./cmd/spider-mail
 ```
 
-Google OAuth Client 的 redirect URI 应与 `GMAIL_REDIRECT_URL` 完全一致。服务默认监听 `127.0.0.1:8080`，避免无意暴露到局域网。Gmail 授权和接口调用方式统一维护在接口文档中。
+开发时可用 `GMAIL_CREDENTIALS_FILE` 直接读取 Google 下载的 OAuth JSON，不必把 Client ID 和 Client Secret 拆进 `.env`。Google OAuth Client 的 redirect URI 应与 `GMAIL_REDIRECT_URL` 完全一致。服务默认监听 `127.0.0.1:8080`；此时可省略 `SPIDER_API_KEY`。监听非回环地址时仍强制要求 API key。Gmail 授权和接口调用方式统一维护在接口文档中。
 
 ## Email Draft Workflow 合约
 

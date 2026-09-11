@@ -26,6 +26,7 @@ func NewServer(service *maildomain.Service, oauth *mailoauth.Flow, apiKey string
 	server := &Server{service: service, oauth: oauth, apiKey: apiKey, logger: logger}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", server.health)
+	mux.HandleFunc("GET /auth/google/callback", server.oauthCallback)
 	mux.HandleFunc("GET /v1/oauth/gmail/callback", server.oauthCallback)
 	mux.Handle("GET /v1/oauth/gmail/start", server.authenticate(http.HandlerFunc(server.oauthStart)))
 	mux.Handle("GET /v1/oauth/gmail/status", server.authenticate(http.HandlerFunc(server.oauthStatus)))
@@ -116,6 +117,10 @@ func (s *Server) send(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.apiKey == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		provided := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if provided == "" || subtle.ConstantTimeCompare([]byte(provided), []byte(s.apiKey)) != 1 {
 			writeError(w, http.StatusUnauthorized, "unauthorized", "a valid bearer token is required")

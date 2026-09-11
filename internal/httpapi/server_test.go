@@ -58,3 +58,21 @@ func TestProtectedEndpointRequiresBearerToken(t *testing.T) {
 		t.Fatalf("got status %d, want %d", response.Code, http.StatusOK)
 	}
 }
+
+func TestLoopbackDevelopmentWithoutConfiguredKeyAllowsRequests(t *testing.T) {
+	directory := t.TempDir()
+	auditStore, err := audit.NewJSONLStore(filepath.Join(directory, "audit.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokenStore := mailoauth.NewFileTokenStore(filepath.Join(directory, "token.json"))
+	flow := mailoauth.NewFlow(&oauth2.Config{}, tokenStore)
+	handler := NewServer(maildomain.NewService(emptyProvider{}, emptyDrafter{}, auditStore), flow, "", slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	request := httptest.NewRequest(http.MethodGet, "/v1/email/threads", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("got status %d, want %d", response.Code, http.StatusOK)
+	}
+}

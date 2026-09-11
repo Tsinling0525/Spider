@@ -34,7 +34,7 @@ func main() {
 		os.Exit(1)
 	}
 	provider := gmail.NewProvider(cfg.OAuth, tokenStore)
-	drafter := dify.NewClient(cfg.DifyBaseURL, cfg.DifyAPIKey, cfg.DifyUser, nil)
+	drafter := dify.NewClient(cfg.DifyBaseURL, cfg.DifyAPIKey, cfg.DifyUser, nil).WithMode(cfg.DifyMode)
 	service := maildomain.NewService(provider, drafter, auditStore)
 	handler := httpapi.NewServer(service, mailoauth.NewFlow(cfg.OAuth, tokenStore), cfg.APIKey, logger)
 	server := &http.Server{

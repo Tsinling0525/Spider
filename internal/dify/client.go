@@ -20,7 +20,14 @@ type Client struct {
 	baseURL    string
 	apiKey     string
 	user       string
+	mode       string
 	httpClient *http.Client
+}
+
+// WithMode selects Dify's Chatflow API; Workflow remains the default.
+func (c *Client) WithMode(mode string) *Client {
+	c.mode = mode
+	return c
 }
 
 func NewClient(baseURL, apiKey, user string, httpClient *http.Client) *Client {
@@ -36,7 +43,11 @@ func (c *Client) Generate(ctx context.Context, req maildomain.DraftRequest, thre
 	if c.apiKey == "" {
 		return maildomain.Draft{}, errors.New("Dify API key is not configured")
 	}
-	messages, err := boundedMessages(thread.Messages)
+	limit := maxContextBytes
+	if c.mode == "chatflow" {
+		limit = 45_000
+	}
+	messages, err := boundedMessagesWithLimit(thread.Messages, limit)
 	if err != nil {
 		return maildomain.Draft{}, err
 	}
@@ -48,15 +59,33 @@ func (c *Client) Generate(ctx context.Context, req maildomain.DraftRequest, thre
 			"preferred_language": defaultString(req.PreferredLanguage, "auto"),
 			"tone_profile":       defaultString(req.ToneProfile, "concise-professional"),
 			"user_signature":     req.UserSignature,
+			"previous_draft":     req.PreviousDraft,
 		},
 		"response_mode": "blocking",
 		"user":          defaultString(c.user, "spider-mail-service"),
+	}
+	endpoint := "/workflows/run"
+	if c.mode == "chatflow" {
+		endpoint = "/chat-messages"
+		from := strings.Join(participants, ", ")
+		if len(thread.Messages) > 0 {
+			from = thread.Messages[len(thread.Messages)-1].From.Email
+		}
+		payload["inputs"] = map[string]interface{}{
+			"email_from": defaultString(from, "Unknown sender"), "email_subject": defaultString(subject, "(no subject)"), "email_body": string(messages),
+		}
+		query := defaultString(req.UserInstruction, "Draft a concise reply to this email.")
+		if req.PreviousDraft != "" {
+			query = "Revise the following user-visible draft according to the feedback.\nPrevious draft:\n" + req.PreviousDraft + "\nFeedback:\n" + query
+		}
+		payload["query"] = query + "\nPreferred language: " + defaultString(req.PreferredLanguage, "auto") +
+			"\nTone: " + defaultString(req.ToneProfile, "concise-professional") + "\nUser signature: " + req.UserSignature
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return maildomain.Draft{}, err
 	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/workflows/run", bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+endpoint, bytes.NewReader(body))
 	if err != nil {
 		return maildomain.Draft{}, err
 	}
@@ -73,6 +102,19 @@ func (c *Client) Generate(ctx context.Context, req maildomain.DraftRequest, thre
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return maildomain.Draft{}, fmt.Errorf("Dify workflow returned %d: %s", response.StatusCode, strings.TrimSpace(string(responseBody)))
+	}
+	if c.mode == "chatflow" {
+		var result struct {
+			Answer string `json:"answer"`
+		}
+		if err := json.Unmarshal(responseBody, &result); err != nil {
+			return maildomain.Draft{}, fmt.Errorf("decode Dify chat response: %w", err)
+		}
+		draft, err := decodeDraft([]byte(result.Answer))
+		if err != nil {
+			return maildomain.Draft{}, err
+		}
+		return draft, nil
 	}
 	var result struct {
 		WorkflowRunID string `json:"workflow_run_id"`
@@ -98,13 +140,17 @@ func (c *Client) Generate(ctx context.Context, req maildomain.DraftRequest, thre
 }
 
 func boundedMessages(messages []maildomain.Message) ([]byte, error) {
+	return boundedMessagesWithLimit(messages, maxContextBytes)
+}
+
+func boundedMessagesWithLimit(messages []maildomain.Message, limit int) ([]byte, error) {
 	copyOfMessages := append([]maildomain.Message(nil), messages...)
 	for {
 		encoded, err := json.Marshal(copyOfMessages)
 		if err != nil {
 			return nil, err
 		}
-		if len(encoded) <= maxContextBytes {
+		if len(encoded) <= limit {
 			return encoded, nil
 		}
 		if len(copyOfMessages) > 1 {
@@ -125,7 +171,7 @@ func boundedMessages(messages []maildomain.Message) ([]byte, error) {
 func decodeDraft(raw json.RawMessage) (maildomain.Draft, error) {
 	var direct maildomain.Draft
 	if isDraftObject(raw) && json.Unmarshal(raw, &direct) == nil {
-		return direct, nil
+		return validateDraft(direct)
 	}
 	var outputs map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &outputs); err != nil {
@@ -137,14 +183,27 @@ func decodeDraft(raw json.RawMessage) (maildomain.Draft, error) {
 			continue
 		}
 		if isDraftObject(value) && json.Unmarshal(value, &direct) == nil {
-			return direct, nil
+			return validateDraft(direct)
 		}
 		var encoded string
 		if json.Unmarshal(value, &encoded) == nil && isDraftObject([]byte(encoded)) && json.Unmarshal([]byte(encoded), &direct) == nil {
-			return direct, nil
+			return validateDraft(direct)
 		}
 	}
 	return maildomain.Draft{}, errors.New("Dify outputs do not contain a structured draft")
+}
+
+func validateDraft(draft maildomain.Draft) (maildomain.Draft, error) {
+	if draft.ShouldReply && strings.TrimSpace(draft.BodyText) == "" {
+		return maildomain.Draft{}, errors.New("Dify returned a reply decision without a body")
+	}
+	if !draft.ShouldReply {
+		draft.BodyText = ""
+	}
+	if draft.Warnings == nil {
+		draft.Warnings = []string{}
+	}
+	return draft, nil
 }
 
 func isDraftObject(raw []byte) bool {
@@ -152,9 +211,11 @@ func isDraftObject(raw []byte) bool {
 	if json.Unmarshal(raw, &object) != nil {
 		return false
 	}
-	_, hasDecision := object["should_reply"]
-	_, hasBody := object["body_text"]
-	return hasDecision || hasBody
+	var decision bool
+	var body, subject string
+	return json.Unmarshal(object["should_reply"], &decision) == nil && string(object["should_reply"]) != "null" &&
+		json.Unmarshal(object["body_text"], &body) == nil && string(object["body_text"]) != "null" &&
+		json.Unmarshal(object["subject"], &subject) == nil && string(object["subject"]) != "null"
 }
 
 func threadContext(thread maildomain.Thread) (string, []string) {
