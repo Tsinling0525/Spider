@@ -8,8 +8,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Tsinling0525/Spider/internal/humantask"
 	maildomain "github.com/Tsinling0525/Spider/internal/mail"
 )
+
+type recordingPauseSink struct{ pauses []humantask.Pause }
+
+func (s *recordingPauseSink) RecordPause(_ context.Context, pause humantask.Pause) error {
+	s.pauses = append(s.pauses, pause)
+	return nil
+}
 
 func TestChatflowRefinesVisibleDraft(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -53,6 +61,24 @@ func TestDraftContractRejectsMalformedAndClearsNoReplyBody(t *testing.T) {
 	}
 }
 
+func TestDecodeDraftAcceptsJSONMarkdownFence(t *testing.T) {
+	raw := []byte("```json\n{\"should_reply\":true,\"subject\":\"Re: Hello\",\"body_text\":\"Hello Alex\"}\n```")
+	draft, err := decodeDraft(raw)
+	if err != nil || !draft.ShouldReply || draft.BodyText != "Hello Alex" {
+		t.Fatalf("draft=%+v, err=%v", draft, err)
+	}
+
+	wrapped := []byte("{\"result\":\"```json\\n{\\\"should_reply\\\":true,\\\"subject\\\":\\\"Re: Hello\\\",\\\"body_text\\\":\\\"Hello Alex\\\"}\\n```\"}")
+	draft, err = decodeDraft(wrapped)
+	if err != nil || !draft.ShouldReply || draft.BodyText != "Hello Alex" {
+		t.Fatalf("wrapped draft=%+v, err=%v", draft, err)
+	}
+
+	if _, err := decodeDraft([]byte("preface\n```json\n{\"should_reply\":true,\"subject\":\"Hi\",\"body_text\":\"Hi\"}\n```")); err == nil {
+		t.Fatal("accepted fenced JSON with explanatory text")
+	}
+}
+
 func TestGenerateParsesStructuredOutput(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer secret" {
@@ -79,6 +105,45 @@ func TestGenerateParsesStructuredOutput(t *testing.T) {
 	}
 	if draft.WorkflowRunID != "run-1" || draft.BodyText != "Hi" || !draft.ShouldReply {
 		t.Fatalf("unexpected draft: %#v", draft)
+	}
+}
+
+func TestGenerateRecordsPausedHumanInputAndSubmitResumesIt(t *testing.T) {
+	var submitted map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/workflows/run" {
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"workflow_run_id": "run-paused", "data": map[string]interface{}{
+					"id": "run-paused", "status": "paused", "reasons": []interface{}{map[string]interface{}{
+						"TYPE": "human_input_required", "form_id": "form-1", "form_token": "token-1",
+						"node_id": "review", "node_title": "Review payment", "form_content": "Confirm status",
+						"inputs":  []interface{}{map[string]interface{}{"type": "paragraph", "output_variable_name": "comment"}},
+						"actions": []interface{}{map[string]interface{}{"id": "approve", "title": "Approve"}}, "expiration_time": 2000000000,
+					}},
+				},
+			})
+			return
+		}
+		if r.URL.Path != "/form/human_input/token-1" {
+			t.Fatalf("wrong path %s", r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&submitted); err != nil {
+			t.Fatal(err)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{})
+	}))
+	defer server.Close()
+	sink := &recordingPauseSink{}
+	client := NewClient(server.URL, "secret", "mantle-user", server.Client()).WithPauseSink(sink)
+	_, err := client.Generate(context.Background(), maildomain.DraftRequest{ThreadID: "t1"}, maildomain.Thread{Messages: []maildomain.Message{{BodyText: "Original"}}})
+	if err == nil || len(sink.pauses) != 1 || sink.pauses[0].FormToken != "token-1" {
+		t.Fatalf("pauses=%+v err=%v", sink.pauses, err)
+	}
+	if err := client.SubmitHumanInput(context.Background(), "token-1", "approve", map[string]any{"comment": "verified"}); err != nil {
+		t.Fatal(err)
+	}
+	if submitted["action"] != "approve" || submitted["user"] != "mantle-user" {
+		t.Fatalf("submitted=%v", submitted)
 	}
 }
 

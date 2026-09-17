@@ -65,6 +65,26 @@ Spider 不负责：
 
 当前 Email 模块不下载附件、不生成 HTML 邮件、不自动发送邮件，也不把 Gmail refresh token 传给 Dify。
 
+## Dify 人工介入任务
+
+当 Workflow API 的 blocking 响应返回 `status=paused` 且包含
+`human_input_required` reason 时，Spider 会把对应表单写入
+`$SPIDER_DATA_DIR/human-tasks.json`。文件以 `0600` 权限原子替换，Dify
+`form_token` 只保存在该服务端文件中，不会返回客户端。
+
+Mantle 使用以下稳定接口，不直接持有 Dify API Key：
+
+```text
+GET  /v1/human-tasks
+GET  /v1/human-tasks/{task_id}
+POST /v1/human-tasks/{task_id}/decisions
+```
+
+决策必须包含 Dify action id、表单输入、当前 `expected_version` 和唯一
+`idempotency_key`。任务采用 first-answer-wins；过期、旧版本或已处理任务返回
+`409 Conflict`。当前第一阶段支持 paragraph 和 select 表单；文件字段会显示，
+但 Mantle 不会提交。
+
 ## 接口文档
 
 完整的客户端接口、鉴权方式、请求响应字段和错误码见 [`docs/api/README.md`](docs/api/README.md)。

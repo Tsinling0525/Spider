@@ -11,19 +11,25 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Tsinling0525/Spider/internal/humantask"
 	maildomain "github.com/Tsinling0525/Spider/internal/mail"
 	mailoauth "github.com/Tsinling0525/Spider/internal/oauth"
 )
 
 type Server struct {
-	service *maildomain.Service
-	oauth   *mailoauth.Flow
-	apiKey  string
-	logger  *slog.Logger
+	service    *maildomain.Service
+	oauth      *mailoauth.Flow
+	apiKey     string
+	logger     *slog.Logger
+	humanTasks *humantask.Service
 }
 
-func NewServer(service *maildomain.Service, oauth *mailoauth.Flow, apiKey string, logger *slog.Logger) http.Handler {
-	server := &Server{service: service, oauth: oauth, apiKey: apiKey, logger: logger}
+func NewServer(service *maildomain.Service, oauth *mailoauth.Flow, apiKey string, logger *slog.Logger, taskServices ...*humantask.Service) http.Handler {
+	var humanTasks *humantask.Service
+	if len(taskServices) > 0 {
+		humanTasks = taskServices[0]
+	}
+	server := &Server{service: service, oauth: oauth, apiKey: apiKey, logger: logger, humanTasks: humanTasks}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", server.health)
 	mux.HandleFunc("GET /auth/google/callback", server.oauthCallback)
@@ -34,7 +40,66 @@ func NewServer(service *maildomain.Service, oauth *mailoauth.Flow, apiKey string
 	mux.Handle("GET /v1/email/threads/{thread_id}", server.authenticate(http.HandlerFunc(server.getThread)))
 	mux.Handle("POST /v1/email/drafts", server.authenticate(http.HandlerFunc(server.generateDraft)))
 	mux.Handle("POST /v1/email/send", server.authenticate(http.HandlerFunc(server.send)))
+	mux.Handle("GET /v1/human-tasks", server.authenticate(http.HandlerFunc(server.listHumanTasks)))
+	mux.Handle("GET /v1/human-tasks/{task_id}", server.authenticate(http.HandlerFunc(server.getHumanTask)))
+	mux.Handle("POST /v1/human-tasks/{task_id}/decisions", server.authenticate(http.HandlerFunc(server.decideHumanTask)))
 	return server.recoverPanic(server.requestLog(mux))
+}
+
+func (s *Server) listHumanTasks(w http.ResponseWriter, _ *http.Request) {
+	if s.humanTasks == nil {
+		writeError(w, http.StatusServiceUnavailable, "service_unavailable", "human task service is not configured")
+		return
+	}
+	tasks, err := s.humanTasks.List()
+	if err != nil {
+		s.handleHumanTaskError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"tasks": tasks})
+}
+
+func (s *Server) getHumanTask(w http.ResponseWriter, r *http.Request) {
+	if s.humanTasks == nil {
+		writeError(w, http.StatusServiceUnavailable, "service_unavailable", "human task service is not configured")
+		return
+	}
+	task, err := s.humanTasks.Get(r.PathValue("task_id"))
+	if err != nil {
+		s.handleHumanTaskError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, task)
+}
+
+func (s *Server) decideHumanTask(w http.ResponseWriter, r *http.Request) {
+	if s.humanTasks == nil {
+		writeError(w, http.StatusServiceUnavailable, "service_unavailable", "human task service is not configured")
+		return
+	}
+	var decision humantask.Decision
+	if err := decodeJSON(w, r, &decision); err != nil {
+		return
+	}
+	task, err := s.humanTasks.Decide(r.Context(), r.PathValue("task_id"), decision)
+	if err != nil {
+		s.handleHumanTaskError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, task)
+}
+
+func (s *Server) handleHumanTaskError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, humantask.ErrNotFound):
+		writeError(w, http.StatusNotFound, "not_found", err.Error())
+	case errors.Is(err, humantask.ErrConflict):
+		writeError(w, http.StatusConflict, "conflict", err.Error())
+	case strings.Contains(err.Error(), "required"):
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+	default:
+		writeError(w, http.StatusBadGateway, "upstream_error", err.Error())
+	}
 }
 
 func (s *Server) health(w http.ResponseWriter, _ *http.Request) {

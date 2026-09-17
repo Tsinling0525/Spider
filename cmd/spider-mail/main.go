@@ -16,6 +16,7 @@ import (
 	"github.com/Tsinling0525/Spider/internal/dify"
 	"github.com/Tsinling0525/Spider/internal/gmail"
 	"github.com/Tsinling0525/Spider/internal/httpapi"
+	"github.com/Tsinling0525/Spider/internal/humantask"
 	maildomain "github.com/Tsinling0525/Spider/internal/mail"
 	mailoauth "github.com/Tsinling0525/Spider/internal/oauth"
 )
@@ -35,8 +36,14 @@ func main() {
 	}
 	provider := gmail.NewProvider(cfg.OAuth, tokenStore)
 	drafter := dify.NewClient(cfg.DifyBaseURL, cfg.DifyAPIKey, cfg.DifyUser, nil).WithMode(cfg.DifyMode)
+	humanTasks, err := humantask.NewService(filepath.Join(cfg.DataDirectory, "human-tasks.json"), drafter)
+	if err != nil {
+		logger.Error("human task store failed", "error", err)
+		os.Exit(1)
+	}
+	drafter.WithPauseSink(humanTasks)
 	service := maildomain.NewService(provider, drafter, auditStore)
-	handler := httpapi.NewServer(service, mailoauth.NewFlow(cfg.OAuth, tokenStore), cfg.APIKey, logger)
+	handler := httpapi.NewServer(service, mailoauth.NewFlow(cfg.OAuth, tokenStore), cfg.APIKey, logger, humanTasks)
 	server := &http.Server{
 		Addr: cfg.ListenAddress, Handler: handler,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,

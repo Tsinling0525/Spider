@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
+	"github.com/Tsinling0525/Spider/internal/humantask"
 	maildomain "github.com/Tsinling0525/Spider/internal/mail"
 )
 
@@ -22,11 +24,21 @@ type Client struct {
 	user       string
 	mode       string
 	httpClient *http.Client
+	pauseSink  PauseSink
+}
+
+type PauseSink interface {
+	RecordPause(context.Context, humantask.Pause) error
 }
 
 // WithMode selects Dify's Chatflow API; Workflow remains the default.
 func (c *Client) WithMode(mode string) *Client {
 	c.mode = mode
+	return c
+}
+
+func (c *Client) WithPauseSink(sink PauseSink) *Client {
+	c.pauseSink = sink
 	return c
 }
 
@@ -119,14 +131,22 @@ func (c *Client) Generate(ctx context.Context, req maildomain.DraftRequest, thre
 	var result struct {
 		WorkflowRunID string `json:"workflow_run_id"`
 		Data          struct {
-			ID      string          `json:"id"`
-			Status  string          `json:"status"`
-			Outputs json.RawMessage `json:"outputs"`
-			Error   string          `json:"error"`
+			ID      string            `json:"id"`
+			Status  string            `json:"status"`
+			Outputs json.RawMessage   `json:"outputs"`
+			Error   string            `json:"error"`
+			Reasons []json.RawMessage `json:"reasons"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(responseBody, &result); err != nil {
 		return maildomain.Draft{}, fmt.Errorf("decode Dify response: %w", err)
+	}
+	if result.Data.Status == "paused" {
+		workflowRunID := defaultString(result.WorkflowRunID, result.Data.ID)
+		if err := c.recordPauses(ctx, workflowRunID, result.Data.Reasons); err != nil {
+			return maildomain.Draft{}, err
+		}
+		return maildomain.Draft{}, fmt.Errorf("Dify workflow %s paused for human input", workflowRunID)
 	}
 	if result.Data.Status != "" && result.Data.Status != "succeeded" {
 		return maildomain.Draft{}, fmt.Errorf("Dify workflow %s: %s", result.Data.Status, result.Data.Error)
@@ -137,6 +157,75 @@ func (c *Client) Generate(ctx context.Context, req maildomain.DraftRequest, thre
 	}
 	draft.WorkflowRunID = defaultString(result.WorkflowRunID, result.Data.ID)
 	return draft, nil
+}
+
+func (c *Client) recordPauses(ctx context.Context, workflowRunID string, reasons []json.RawMessage) error {
+	if c.pauseSink == nil {
+		return errors.New("Dify workflow paused but no human task sink is configured")
+	}
+	recorded := 0
+	for _, raw := range reasons {
+		var reason struct {
+			Type                  string             `json:"TYPE"`
+			FormID                string             `json:"form_id"`
+			FormToken             string             `json:"form_token"`
+			NodeID                string             `json:"node_id"`
+			NodeTitle             string             `json:"node_title"`
+			FormContent           string             `json:"form_content"`
+			Inputs                []humantask.Input  `json:"inputs"`
+			Actions               []humantask.Action `json:"actions"`
+			ResolvedDefaultValues map[string]any     `json:"resolved_default_values"`
+			ExpirationTime        int64              `json:"expiration_time"`
+		}
+		if json.Unmarshal(raw, &reason) != nil || reason.Type != "human_input_required" {
+			continue
+		}
+		if err := c.pauseSink.RecordPause(ctx, humantask.Pause{
+			WorkflowRunID: workflowRunID, FormID: reason.FormID, FormToken: reason.FormToken,
+			NodeID: reason.NodeID, NodeTitle: reason.NodeTitle, FormContent: reason.FormContent,
+			Inputs: reason.Inputs, Actions: reason.Actions,
+			ResolvedDefaultValues: reason.ResolvedDefaultValues, ExpirationTime: reason.ExpirationTime,
+		}); err != nil {
+			return fmt.Errorf("record Dify human input: %w", err)
+		}
+		recorded++
+	}
+	if recorded == 0 {
+		return errors.New("Dify workflow paused without an actionable WebApp human-input form")
+	}
+	return nil
+}
+
+func (c *Client) SubmitHumanInput(ctx context.Context, formToken, action string, inputs map[string]any) error {
+	if c.apiKey == "" {
+		return errors.New("Dify API key is not configured")
+	}
+	payload, err := json.Marshal(map[string]any{
+		"inputs": inputs, "action": action, "user": defaultString(c.user, "spider-mail-service"),
+	})
+	if err != nil {
+		return err
+	}
+	endpoint := c.baseURL + "/form/human_input/" + url.PathEscape(formToken)
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Authorization", "Bearer "+c.apiKey)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
+	if err != nil {
+		return err
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return fmt.Errorf("Dify human input returned %d: %s", response.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return nil
 }
 
 func boundedMessages(messages []maildomain.Message) ([]byte, error) {
@@ -169,6 +258,7 @@ func boundedMessagesWithLimit(messages []maildomain.Message, limit int) ([]byte,
 }
 
 func decodeDraft(raw json.RawMessage) (maildomain.Draft, error) {
+	raw = normalizeDraftJSON(raw)
 	var direct maildomain.Draft
 	if isDraftObject(raw) && json.Unmarshal(raw, &direct) == nil {
 		return validateDraft(direct)
@@ -186,11 +276,31 @@ func decodeDraft(raw json.RawMessage) (maildomain.Draft, error) {
 			return validateDraft(direct)
 		}
 		var encoded string
-		if json.Unmarshal(value, &encoded) == nil && isDraftObject([]byte(encoded)) && json.Unmarshal([]byte(encoded), &direct) == nil {
+		if json.Unmarshal(value, &encoded) != nil {
+			continue
+		}
+		candidate := normalizeDraftJSON([]byte(encoded))
+		if isDraftObject(candidate) && json.Unmarshal(candidate, &direct) == nil {
 			return validateDraft(direct)
 		}
 	}
 	return maildomain.Draft{}, errors.New("Dify outputs do not contain a structured draft")
+}
+
+// normalizeDraftJSON accepts the common model response shape where a JSON
+// object is wrapped in a single Markdown fence. Text outside the fence remains
+// invalid so explanatory model output cannot be mistaken for a draft.
+func normalizeDraftJSON(raw []byte) []byte {
+	trimmed := bytes.TrimSpace(raw)
+	if !bytes.HasPrefix(trimmed, []byte("```")) {
+		return trimmed
+	}
+	contentStart := bytes.IndexByte(trimmed, '\n')
+	contentEnd := bytes.LastIndex(trimmed, []byte("```"))
+	if contentStart < 0 || contentEnd <= contentStart || len(bytes.TrimSpace(trimmed[contentEnd+3:])) != 0 {
+		return trimmed
+	}
+	return bytes.TrimSpace(trimmed[contentStart+1 : contentEnd])
 }
 
 func validateDraft(draft maildomain.Draft) (maildomain.Draft, error) {
