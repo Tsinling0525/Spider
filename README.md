@@ -76,14 +76,28 @@ Mantle 使用以下稳定接口，不直接持有 Dify API Key：
 
 ```text
 GET  /v1/human-tasks
+GET  /v1/human-tasks/events
+GET  /v1/human-tasks/changes?after={revision}&wait_seconds=25
 GET  /v1/human-tasks/{task_id}
+GET  /v1/human-tasks/{task_id}/history
+POST /v1/human-tasks/{task_id}/claims
 POST /v1/human-tasks/{task_id}/decisions
 ```
 
-决策必须包含 Dify action id、表单输入、当前 `expected_version` 和唯一
-`idempotency_key`。任务采用 first-answer-wins；过期、旧版本或已处理任务返回
-`409 Conflict`。当前第一阶段支持 paragraph 和 select 表单；文件字段会显示，
-但 Mantle 不会提交。
+浏览器可通过 SSE 接收完整快照；原生客户端可用 `revision` 长轮询。快照中的
+`reviewer` 来自 Spider 鉴权边界，不接受客户端自报身份。一个 Spider 部署当前绑定
+一个 `SPIDER_REVIEWER_ID`（默认 `principal:owner`）与其 API key。认领接口用
+`assignee` 与 `expected_version` 支持认领、转交和释放（空 assignee）。决策必须包含
+Dify action id、表单输入、当前 `expected_version` 和唯一 `idempotency_key`；请求中的
+`reviewer` 即使存在也会被服务端身份覆盖。任务采用 first-answer-wins；过期、旧版本、未认领、审批人不匹配
+或已处理任务返回 `409 Conflict`。`priority` 与 `sla_status` 只由 Dify
+`expiration_time` 推导。当前支持 paragraph 和 select 表单；文件字段会显示，但
+Mantle 不会提交。
+
+认领、转交、释放、开始提交、成功、失败和过期都会写入脱敏事件轨迹；历史接口
+不会返回表单输入或 `form_token`。如果 Spider 在 `submitting` 状态退出，重启后任务
+会进入 `failed`，明确标注 Dify 结果未知并要求人工核对，而不会自动重放一个可能
+已经成功的决定。
 
 ## 接口文档
 
@@ -166,3 +180,17 @@ go test ./...
 go vet ./...
 go build ./cmd/spider-mail
 ```
+
+## Life 服务（lifed）
+
+`cmd/lifed` 独立提供 `GET /life/food`（连接检查）和 `POST /life/food`（`search`、`quote`、`place_order`、`status`），无需 Gmail 配置。调用链为 Mantle → lifed → Dify → lifed 内部适配器 → DoorDash MCP。
+
+```bash
+cp .env.life.example .env.life
+# 填入本机 Dify 和 MCP 配置；密钥只放服务端。
+chmod 600 .env.life
+go build -o bin/lifed ./cmd/lifed
+./scripts/run-lifed.sh
+```
+
+默认公开 API 为 `127.0.0.1:8081`，带认证的 Dify 回调监听 `8082`。协议、部署和验证范围见 [Life Food API](docs/life/food.md)。

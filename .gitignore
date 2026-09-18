@@ -3,3 +3,6 @@
 /spider-mail
 *.log
 .DS_Store
+
+/.env.life
+/bin/

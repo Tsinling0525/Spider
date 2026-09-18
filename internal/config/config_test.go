@@ -10,7 +10,7 @@ import (
 func clearConfigEnvironment(t *testing.T) {
 	t.Helper()
 	for _, name := range []string{
-		"SPIDER_LISTEN_ADDRESS", "SPIDER_API_KEY", "SPIDER_DATA_DIR",
+		"SPIDER_LISTEN_ADDRESS", "SPIDER_API_KEY", "SPIDER_REVIEWER_ID", "SPIDER_DATA_DIR",
 		"GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET", "GMAIL_CREDENTIALS_FILE", "GMAIL_REDIRECT_URL",
 	} {
 		t.Setenv(name, "")
@@ -32,6 +32,9 @@ func TestLoadAcceptsGoogleCredentialsFileWithoutSplitSecretsOrAPIKeyOnLoopback(t
 	}
 	if cfg.APIKey != "" {
 		t.Fatalf("APIKey = %q, want empty local-development key", cfg.APIKey)
+	}
+	if cfg.ReviewerID != "principal:owner" {
+		t.Fatalf("ReviewerID = %q", cfg.ReviewerID)
 	}
 	if cfg.OAuth.ClientID != "file-client" || cfg.OAuth.ClientSecret != "file-secret" {
 		t.Fatal("OAuth client credentials were not loaded from the Google JSON file")

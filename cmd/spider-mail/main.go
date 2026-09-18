@@ -43,7 +43,7 @@ func main() {
 	}
 	drafter.WithPauseSink(humanTasks)
 	service := maildomain.NewService(provider, drafter, auditStore)
-	handler := httpapi.NewServer(service, mailoauth.NewFlow(cfg.OAuth, tokenStore), cfg.APIKey, logger, humanTasks)
+	handler := httpapi.NewServerForPrincipal(service, mailoauth.NewFlow(cfg.OAuth, tokenStore), cfg.APIKey, cfg.ReviewerID, logger, humanTasks)
 	server := &http.Server{
 		Addr: cfg.ListenAddress, Handler: handler,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,

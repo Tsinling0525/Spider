@@ -16,6 +16,7 @@ import (
 type Config struct {
 	ListenAddress string
 	APIKey        string
+	ReviewerID    string
 	DataDirectory string
 	DifyBaseURL   string
 	DifyAPIKey    string
@@ -41,7 +42,7 @@ func Load() (Config, error) {
 	}
 	return Config{
 		ListenAddress: listenAddress,
-		APIKey:        apiKey, DataDirectory: absDataDirectory,
+		APIKey:        apiKey, ReviewerID: env("SPIDER_REVIEWER_ID", "principal:owner"), DataDirectory: absDataDirectory,
 		DifyBaseURL: env("DIFY_BASE_URL", "https://api.dify.ai/v1"),
 		DifyAPIKey:  strings.TrimSpace(os.Getenv("DIFY_API_KEY")),
 		DifyUser:    env("DIFY_USER", "spider-mail-service"),
