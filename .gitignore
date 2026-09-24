@@ -6,3 +6,5 @@
 
 /.env.life
 /bin/
+
+/.env.llm

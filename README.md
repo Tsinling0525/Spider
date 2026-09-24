@@ -23,13 +23,15 @@ Spider 是一个用 Go 实现的 **product backend / capability backend**。它�
 | 标记已读、归档或发送用户确认后的内容 | Spider |
 | 判断哪些邮件需要处理并生成摘要 | Dify Workflow |
 | 根据邮件草拟回复并判断是否需要查询日历 | Dify Workflow |
-| 多工具调用、LLM 推理和 RAG | Dify Workflow |
+| 多工具调用、Workflow 内的 LLM 推理和 RAG | Dify Workflow |
+| 通用对话和流式回答 | llmd → Dify Chatflow |
 
 整体调用关系：
 
 ```text
 Client ──→ Spider ──→ Gmail / Calendar / DB / Weather API
                    └─→ Dify Workflow ──→ tools / LLM / RAG
+Client ──→ llmd ──→ Dify Chatflow ──→ LLM
 ```
 
 Dify 永远位于 Spider 后面。客户端只依赖 Spider 的稳定 API，因此未来替换 Workflow 引擎时不需要同步改造客户端。
@@ -194,3 +196,43 @@ go build -o bin/lifed ./cmd/lifed
 ```
 
 默认公开 API 为 `127.0.0.1:8081`，带认证的 Dify 回调监听 `8082`。协议、部署和验证范围见 [Life Food API](docs/life/food.md)。
+
+打车接口为 `GET /life/ride`（配置状态）和 `POST /life/ride`（`estimate`、`request`、`status`、`cancel`），通过独立 stdio Uber MCP 子进程调用 Uber API。默认沙箱、叫车关闭；配置 OAuth token 后可查询预估，启用叫车后仍需报价确认和幂等键。配置、调用示例及验证范围见 [Life Ride API](docs/life/ride.md)。
+
+## LLM 服务（llmd）
+
+`cmd/llmd` 提供独立对话服务：Mantle → llmd → Dify Chatflow → LLM。
+默认监听 `127.0.0.1:8084`。模型和提示词在 Dify Chatflow 内配置。
+
+```bash
+cp .env.llm.example .env.llm
+# 填入已发布 Chatflow 的 LLM_DIFY_API_KEY
+chmod 600 .env.llm
+go build -o bin/llmd ./cmd/llmd
+./scripts/run-llmd.sh
+```
+
+`POST /v1/chat-messages` 调用 Dify 的 `/chat-messages`，
+支持 `query`、`inputs`、`conversation_id`、`files` 等
+[Dify Chatflow 请求字段](https://docs.dify.ai/en/api-reference/chat-messages/send-chat-message)。
+默认 `response_mode=streaming`，也可指定 `blocking`。
+返回 Dify 的 JSON 或 SSE 事件，保留状态码、会话 ID 和消息 ID。
+首次请求省略 `conversation_id`，后续携带响应中的 ID 延续会话。
+
+```bash
+curl -N http://127.0.0.1:8084/v1/chat-messages \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"你好","inputs":{},"response_mode":"streaming"}'
+```
+
+`LLM_DIFY_BASE_URL` 是包含 `/v1` 的 Dify API 地址（默认 `http://localhost/v1`）。
+`LLM_DIFY_API_KEY` 必填，仅在服务端使用。
+`LLM_DIFY_USER` 默认 `spider-llm-owner`，覆盖客户端自报的 `user`；
+当前每个部署绑定一个用户，客户端共享该用户的会话空间。
+
+`LLM_LISTEN_ADDRESS` 配置监听地址。非回环监听必须设置 `LLM_API_KEY`
+（可回退到 `SPIDER_API_KEY`），客户端携带 `Authorization: Bearer <key>`；
+此客户端凭据由服务端替换为 Dify 应用凭据。
+`GET /healthz` 仅检查 llmd 存活。请求体上限 2 MiB；
+上游连接失败返回 `502`。客户端断开会取消到 Dify 的 HTTP 请求，
+但不保证停止 Dify 后台工作流。长时间推理不设置固定写入超时。
