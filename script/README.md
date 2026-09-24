@@ -10,6 +10,8 @@
 
 导出保留节点、连线、提示词、输入输出、插件依赖和功能配置。没有包含运行历史、聊天记录、Gmail OAuth token、Dify 应用 key 或模型供应商凭据。全部环境变量值已清空，包含 Food adapter 的 URL 和 secret token。模型名称是原发布配置；目标实例无法使用时，在 LLM 节点选择可用模型并重新验证输出。
 
+MCP 安装、鉴权、登录、LaunchAgent 和 Uber 配置见 [MCP 部署与联调指南](MCP-DEPLOYMENT.md)。
+
 ## 导入与配置
 
 1. 在目标 Dify 工作室分别导入需要的 `.yml` 文件，安装导入提示中的插件依赖。版本不兼容时使用对应 Dify 版本或先验证升级，不直接修改 DSL version 字段跳过检查。
