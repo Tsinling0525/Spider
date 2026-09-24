@@ -101,6 +101,10 @@ Mantle 不会提交。
 会进入 `failed`，明确标注 Dify 结果未知并要求人工核对，而不会自动重放一个可能
 已经成功的决定。
 
+## Dify DSL 部署文件
+
+已发布邮件回复、Food 和聊天应用的完整脱敏 DSL 位于 [`script/`](script/README.md)，包含导入步骤、模型与环境变量配置，以及重复导出脚本。
+
 ## 接口文档
 
 完整的客户端接口、鉴权方式、请求响应字段和错误码见 [`docs/api/README.md`](docs/api/README.md)。
