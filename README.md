@@ -105,6 +105,8 @@ Mantle 不会提交。
 
 已发布邮件回复、Food 和聊天应用的完整脱敏 DSL 位于 [`script/`](script/README.md)，包含导入步骤、模型与环境变量配置，以及重复导出脚本。
 
+MCP 网关与浏览器会话的部署见 [`script/MCP-DEPLOYMENT.md`](script/MCP-DEPLOYMENT.md)，包含 DoorDash 和 Uber 的配置与联调步骤。
+
 ## 接口文档
 
 完整的客户端接口、鉴权方式、请求响应字段和错误码见 [`docs/api/README.md`](docs/api/README.md)。

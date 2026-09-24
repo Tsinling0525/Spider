@@ -10,6 +10,8 @@ Mantle → :8081 /life/food → Dify /v1/workflows/run
                   :3917/mcp → DoorDash 浏览器
 ```
 
+完整 MCP 安装、登录与常驻运行步骤见 [MCP 部署指南](../../script/MCP-DEPLOYMENT.md)。
+
 ## 运行
 
 复制 `.env.life.example` 为 `.env.life` 并填入配置，然后：
