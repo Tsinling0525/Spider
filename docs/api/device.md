@@ -7,8 +7,10 @@ execute model-proposed actions or automatically approve Dify human tasks.
 
 ## Configuration
 
-Requires Go 1.24+, FFmpeg with libopus for the real Dify provider, and a dedicated
-Dify Chatflow with STT and TTS enabled. Do not reuse the email-refiner application
+Requires Go 1.24+, FFmpeg with libopus, and a dedicated published Dify Chatflow.
+The default voice-response mode uses Dify STT and TTS. For voice input with screen
+text output, set `SPIDER_VOICE_TEXT_ONLY=1`; TTS is then unnecessary. Optional local
+ASR also removes the need for Dify STT. Do not reuse the email-refiner application
 for general conversation.
 
 Create a private JSON array at `data/device/bindings.json`:
@@ -27,6 +29,8 @@ Environment:
 | `SPIDER_DEVICE_ADMIN_TOKEN` | Separate admin token, at least 24 characters |
 | `SPIDER_VOICE_DIFY_BASE_URL` | Dedicated voice Chatflow API base, default `http://localhost/v1` |
 | `SPIDER_VOICE_DIFY_API_KEY` | Server-only Dify application credential |
+| `SPIDER_VOICE_ASR_URL` | Optional local WAV transcription endpoint, e.g. `http://127.0.0.1:8085/transcribe`; receives no Dify key |
+| `SPIDER_VOICE_TEXT_ONLY` | `1`: send transcript and assistant text without calling TTS |
 | `SPIDER_DEVICE_DIAGNOSTIC` | Explicit `1`: echo recorded audio, show diagnostic text, no AI |
 
 ```sh
@@ -94,6 +98,48 @@ window, supports local wake word or BOOT, and returns to standby on silence.
 Conversation IDs remain server-side for the active connection. A reconnect
 starts a new conversation; cross-session memory is not implemented here.
 
+In text-only mode the assistant's `node.converse.reply.v0` carries Spider's
+additive `audio_expected: false`. Updated firmware displays the reply and returns
+to idle; it does not wait for speech or send an audio playback receipt. Wake or
+press BOOT for the next question. Missing metadata retains normal voice behavior.
+Leading DeepSeek `<think>...</think>` blocks are removed from the displayed answer.
+
+## Local voice input and text output
+
+Install the isolated recognizer once from this checkout (Python 3.10+):
+
+```sh
+uv venv --python python3.13 data/device/asr-venv
+uv pip install --python data/device/asr-venv/bin/python faster-whisper==1.2.1
+```
+
+Run `./scripts/run-device-asr.sh` in one terminal and
+`./scripts/run-device-local.sh` in another. The recognizer uses
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper) with the multilingual
+`small` model on CPU. Its first start downloads the model into ignored
+`data/device/models/`; later starts reuse it. It listens only on `127.0.0.1:8085`,
+accepts at most 20 seconds of 16 kHz mono PCM WAV, and defaults to Mandarin
+(`SPIDER_ASR_LANGUAGE=zh`). Audio stays on this computer; the transcript is sent
+through Dify to the Chatflow's configured model. Keep both services running and
+the ESP32 on the same LAN as the computer.
+
+Private `data/device/local.env` should contain the Dify key plus:
+
+```sh
+SPIDER_VOICE_DIFY_BASE_URL=http://localhost/v1
+SPIDER_VOICE_ASR_URL=http://127.0.0.1:8085/transcribe
+SPIDER_VOICE_TEXT_ONLY=1
+SPIDER_DEVICE_DIAGNOSTIC=0
+```
+
+The opt-in live test uses private `data/device/dify-app.json` and a synthetic
+`data/device/test-input.wav` (16 kHz mono). It exercises OBS1 WebSocket audio,
+real recognition, the published Chatflow and a text-only response:
+
+```sh
+SPIDER_TEST_LOCAL_VOICE=1 go test ./internal/device -run TestLocalVoiceToText -v -count=1
+```
+
 ## Confirmation cards
 
 Admin-token protected `POST /v1/device/approvals` accepts:
@@ -139,7 +185,7 @@ LAN address changes. Private tokens and local environment are in ignored
 `data/device/` files; they are not example credentials to distribute.
 
 Start the service from this checkout with `./scripts/run-device-local.sh`.
-The current private environment explicitly enables diagnostic loopback. The
+The initial private environment explicitly enabled diagnostic loopback. The
 service has passed its Go race tests, including an idle control-Ping regression,
 and the flashed physical board has enrolled successfully.
 After the heartbeat fix, the physical connection remained up for over two
@@ -158,5 +204,19 @@ Physical acceptance steps:
    local service and verify re-enrollment and pending card recovery.
 
 Touch, audible playback and acoustic wake-word quality still require human
-confirmation. Dify STT, inference and TTS have only been checked against a local
-HTTP test double; no live voice application has been configured yet.
+confirmation.
+
+### Text reply integration, 2026-09-24
+
+Published the user's “聊天机器人” Chatflow
+(`385a7bde-f8aa-4622-a4d6-4176bda3cbec`) and configured local Whisper ASR with
+text-only replies. The original Dify draft and device environment are backed up
+under ignored `data/device/`. Live synthetic Mandarin input “请用一句话告诉我，
+一加一等于几” returned “1加1等于2。” through real ASR and Dify. Device package race
+tests and vet passed. The updated ESP32 application was flashed with hash
+verification and automatically re-enrolled. A physical 58-frame capture was
+transcribed and its text reply delivered in approximately three seconds; the
+user confirmed the answer appeared on the device screen. This validates the
+board microphone → local ASR → Dify → screen path. Acoustic wake-word quality,
+touch and speech playback remain separate checks. Dify STT/TTS are not used in
+this configuration.

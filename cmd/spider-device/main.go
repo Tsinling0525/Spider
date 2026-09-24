@@ -46,7 +46,7 @@ func main() {
 	}
 	server := &device.Server{Bindings: bindings, AdminToken: admin, Store: store}
 	if key := os.Getenv("SPIDER_VOICE_DIFY_API_KEY"); key != "" {
-		server.Provider = &device.Dify{BaseURL: env("SPIDER_VOICE_DIFY_BASE_URL", "http://localhost/v1"), APIKey: key, Client: &http.Client{Timeout: 90 * time.Second}}
+		server.Provider = &device.Dify{BaseURL: env("SPIDER_VOICE_DIFY_BASE_URL", "http://localhost/v1"), APIKey: key, Client: &http.Client{Timeout: 90 * time.Second}, ASRURL: os.Getenv("SPIDER_VOICE_ASR_URL"), TextOnly: os.Getenv("SPIDER_VOICE_TEXT_ONLY") == "1"}
 	}
 	if os.Getenv("SPIDER_DEVICE_DIAGNOSTIC") == "1" {
 		server.Provider = device.Diagnostic{}

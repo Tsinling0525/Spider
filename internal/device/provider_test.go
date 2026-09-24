@@ -58,6 +58,18 @@ func TestDifyAudioChatAudio(t *testing.T) {
 				t.Error(err)
 			}
 			defer r.MultipartForm.RemoveAll()
+			file, header, err := r.FormFile("file")
+			if err != nil {
+				t.Error(err)
+				http.Error(w, "audio required", http.StatusBadRequest)
+				return
+			}
+			_ = file.Close()
+			if header.Header.Get("Content-Type") != "audio/wav" {
+				t.Error("Dify requires an audio MIME type")
+				http.Error(w, "unsupported audio type", http.StatusBadRequest)
+				return
+			}
 			if r.FormValue("user") != "principal:test" {
 				t.Error("wrong principal")
 			}
@@ -83,5 +95,47 @@ func TestDifyAudioChatAudio(t *testing.T) {
 	}
 	if calls != 3 || reply.Conversation != "next" || len(reply.Audio) == 0 {
 		t.Fatal(reply, calls)
+	}
+}
+
+func TestTextOnlyWithLocalRecognition(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	packets, err := encodeOpus(ctx, testWAV())
+	if err != nil {
+		t.Fatal(err)
+	}
+	asr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" {
+			t.Error("Dify credential leaked to local ASR")
+		}
+		if r.Header.Get("Content-Type") != "audio/wav" {
+			t.Error("expected WAV")
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"text": "一加一等于几"})
+	}))
+	defer asr.Close()
+	chat := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/chat-messages" {
+			t.Error("text-only mode called Dify audio endpoint")
+		}
+		var request map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&request)
+		if request["query"] != "一加一等于几" || request["conversation_id"] != "previous" {
+			t.Error(request)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"answer": "<think>internal reasoning</think>一加一等于二。", "conversation_id": "next"})
+	}))
+	defer chat.Close()
+	d := Dify{BaseURL: chat.URL, APIKey: "test-key", ASRURL: asr.URL, TextOnly: true}
+	reply, err := d.Turn(ctx, "principal:test", "previous", packets)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reply.TextOnly || len(reply.Audio) != 0 || reply.Text != "一加一等于二。" || reply.Conversation != "next" {
+		t.Fatal(reply)
 	}
 }

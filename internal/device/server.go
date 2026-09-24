@@ -436,6 +436,7 @@ func (s *Server) serve(ws *websocket.Conn, b Binding) {
 			}
 			busy = false
 			if result.err != nil {
+				slog.Error("device voice processing failed", "node", b.Node, "error", result.err)
 				reject("voice", "voice processing failed; check Spider provider configuration")
 				continue
 			}
@@ -444,9 +445,18 @@ func (s *Server) serve(ws *websocket.Conn, b Binding) {
 			pendingTurn = turn
 			pendingHash = randomHash()
 			for _, line := range []struct{ role, text string }{{"user", result.reply.Transcript}, {"assistant", result.reply.Text}} {
-				if send(map[string]any{"type": "node.converse.reply.v0", "message_id": randomID(), "situation_id": nil, "content": line.text, "role": line.role, "delivery": "live"}) != nil {
+				message := map[string]any{"type": "node.converse.reply.v0", "message_id": randomID(), "situation_id": nil, "content": line.text, "role": line.role, "delivery": "live"}
+				if line.role == "assistant" && result.reply.TextOnly {
+					message["audio_expected"] = false
+				}
+				if send(message) != nil {
 					return
 				}
+			}
+			if result.reply.TextOnly {
+				pendingTurn = ""
+				slog.Info("device text reply delivered", "node", b.Node, "characters", len([]rune(result.reply.Text)))
+				continue
 			}
 			if len(result.reply.Audio) == 0 {
 				pendingTurn = ""

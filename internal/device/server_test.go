@@ -206,3 +206,36 @@ func TestCancelRotatesGrant(t *testing.T) {
 		t.Fatal("grant not rotated")
 	}
 }
+
+type textProvider struct{}
+
+func (textProvider) Turn(context.Context, string, string, [][]byte) (Reply, error) {
+	return Reply{Transcript: "问题", Text: "文字回答", Conversation: "c1", TextOnly: true}, nil
+}
+func TestTextOnlyAllowsNextTurnWithoutPlaybackReceipt(t *testing.T) {
+	s, h := setup(t)
+	s.Provider = textProvider{}
+	ws := dial(t, h)
+	hash := enroll(t, ws)
+	for seq := uint32(0); seq < 2; seq++ {
+		_ = websocket.JSON.Send(ws, map[string]any{"type": "node.voice.capture_state.v1", "capture_enabled": true, "held_by": []string{"observation_lease"}})
+		p := []byte{'O', 'B', 'S', '1', 0, 0, 0, 0, 0, 0, 0, 0, 0xf8, 0xff, 0xfe}
+		binary.LittleEndian.PutUint32(p[4:], hash)
+		binary.LittleEndian.PutUint32(p[8:], seq)
+		if err := wire.Send(ws, wireMessage{true, p}); err != nil {
+			t.Fatal(err)
+		}
+		_ = websocket.JSON.Send(ws, map[string]any{"type": "node.voice.capture_state.v1", "capture_enabled": false, "held_by": []string{"observation_lease"}})
+		if recv(t, ws)["role"] != "user" {
+			t.Fatal("missing transcript")
+		}
+		r := recv(t, ws)
+		if r["role"] != "assistant" || r["audio_expected"] != false {
+			t.Fatal(r)
+		}
+		_ = websocket.JSON.Send(ws, map[string]any{"type": "node.device.ping.v1"})
+		if recv(t, ws)["type"] != "node.device.pong.v1" {
+			t.Fatal("unexpected speech/error frame")
+		}
+	}
+}
