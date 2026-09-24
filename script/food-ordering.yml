@@ -1,0 +1,717 @@
+app:
+  description: DoorDash ordering workflow scaffold for Dify. It supports restaurant/menu
+    search, checkout preview, explicit purchase confirmation, order placement, and
+    order-status lookup through a DoorDash MCP-to-HTTP adapter.
+  icon: 🛍️
+  icon_background: '#FFF3E8'
+  icon_type: emoji
+  mode: workflow
+  name: DoorDash Ordering (Approval Required)
+  use_icon_as_answer_icon: false
+dependencies: []
+kind: app
+version: 0.7.0
+workflow:
+  conversation_variables: []
+  environment_variables:
+  - description: ''
+    id: 8339ae42-0525-4735-8216-38b5fbdc7dd7
+    name: DOORDASH_ADAPTER_URL
+    selector:
+    - env
+    - DOORDASH_ADAPTER_URL
+    value: ''
+    value_type: string
+  - description: ''
+    id: 025a4bb9-0fdf-46ac-afb2-ddf38d52bbd2
+    name: DOORDASH_ADAPTER_TOKEN
+    selector:
+    - env
+    - DOORDASH_ADAPTER_TOKEN
+    value: ''
+    value_type: secret
+  features:
+    file_upload:
+      enabled: false
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: http-request
+      id: router-search
+      source: operation-router
+      sourceHandle: search
+      target: search-http
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: http-request
+      id: router-quote
+      source: operation-router
+      sourceHandle: quote
+      target: quote-http
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: if-else
+      id: router-place-order
+      source: operation-router
+      sourceHandle: place_order
+      target: approval-gate
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: http-request
+      id: router-status
+      source: operation-router
+      sourceHandle: 'false'
+      target: status-http
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: http-request
+      id: approved-place-order
+      source: approval-gate
+      sourceHandle: approved
+      target: order-http
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: end
+      id: rejected-place-order
+      source: approval-gate
+      sourceHandle: 'false'
+      target: not-approved-end
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: http-request
+        targetType: end
+      id: search-end-edge
+      source: search-http
+      sourceHandle: source
+      target: search-end
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: http-request
+        targetType: end
+      id: quote-end-edge
+      source: quote-http
+      sourceHandle: source
+      target: quote-end
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: http-request
+        targetType: end
+      id: order-end-edge
+      source: order-http
+      sourceHandle: source
+      target: order-end
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: http-request
+        targetType: end
+      id: status-end-edge
+      source: status-http
+      sourceHandle: source
+      target: status-end
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: code
+      id: start-serialize
+      source: start
+      sourceHandle: source
+      target: serialize_food_input
+      targetHandle: target
+      type: custom
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: if-else
+      id: serialize-router
+      source: serialize_food_input
+      sourceHandle: source
+      target: operation-router
+      targetHandle: target
+      type: custom
+    nodes:
+    - data:
+        desc: Call once with operation=search, again with operation=quote after the
+          user selects an item, and finally with operation=place_order plus the exact
+          confirmation phrase.
+        selected: false
+        title: Order request
+        type: start
+        variables:
+        - label: Operation
+          max_length: 32
+          options:
+          - search
+          - quote
+          - place_order
+          - status
+          required: true
+          type: select
+          variable: operation
+        - label: Natural-language food request
+          max_length: 2000
+          options: []
+          required: false
+          type: paragraph
+          variable: request
+        - label: Delivery address
+          max_length: 500
+          options: []
+          required: false
+          type: text-input
+          variable: delivery_address
+        - label: Budget in AUD
+          max_length: 32
+          options: []
+          required: false
+          type: text-input
+          variable: budget_aud
+        - label: Restaurant ID
+          max_length: 256
+          options: []
+          required: false
+          type: text-input
+          variable: restaurant_id
+        - label: Selected item IDs (comma-separated)
+          max_length: 2000
+          options: []
+          required: false
+          type: paragraph
+          variable: item_ids
+        - label: Quote ID
+          max_length: 256
+          options: []
+          required: false
+          type: text-input
+          variable: quote_id
+        - label: Order ID
+          max_length: 256
+          options: []
+          required: false
+          type: text-input
+          variable: order_id
+        - label: Purchase confirmation
+          max_length: 64
+          options: []
+          required: false
+          type: text-input
+          variable: purchase_confirmation
+      height: 409
+      id: start
+      position:
+        x: 14.666666666666686
+        y: 261
+      positionAbsolute:
+        x: 14.666666666666686
+        y: 261
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+      zIndex: 0
+    - data:
+        cases:
+        - case_id: search
+          conditions:
+          - comparison_operator: is
+            id: operation-is-search
+            value: search
+            varType: string
+            variable_selector:
+            - start
+            - operation
+          id: search
+          logical_operator: and
+        - case_id: quote
+          conditions:
+          - comparison_operator: is
+            id: operation-is-quote
+            value: quote
+            varType: string
+            variable_selector:
+            - start
+            - operation
+          id: quote
+          logical_operator: and
+        - case_id: place_order
+          conditions:
+          - comparison_operator: is
+            id: operation-is-place-order
+            value: place_order
+            varType: string
+            variable_selector:
+            - start
+            - operation
+          id: place_order
+          logical_operator: and
+        desc: The default branch handles operation=status.
+        selected: true
+        title: Select operation
+        type: if-else
+      height: 336
+      id: operation-router
+      position:
+        x: 740
+        y: 282
+      positionAbsolute:
+        x: 356
+        y: 375.33333333333337
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+      zIndex: 0
+    - data:
+        cases:
+        - case_id: approved
+          conditions:
+          - comparison_operator: is
+            id: exact-confirmation
+            value: CONFIRM PURCHASE
+            varType: string
+            variable_selector:
+            - start
+            - purchase_confirmation
+          id: approved
+          logical_operator: and
+        desc: Hard transaction boundary. The order endpoint is unreachable unless
+          the user supplies the exact phrase CONFIRM PURCHASE.
+        selected: false
+        title: Explicit approval gate
+        type: if-else
+      height: 224
+      id: approval-gate
+      position:
+        x: 760
+        y: 620
+      positionAbsolute:
+        x: 760
+        y: 620
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+      zIndex: 0
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data:
+          - key: ''
+            type: text
+            value: '{{#serialize_food_input.search_body#}}'
+          type: raw-text
+        headers: 'Content-Type:application/json
+
+          Authorization:Bearer {{#env.DOORDASH_ADAPTER_TOKEN#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 0
+          retry_enabled: false
+          retry_interval: 1000
+        selected: false
+        timeout:
+          max_connect_timeout: 10
+          max_read_timeout: 120
+          max_write_timeout: 30
+        title: Search restaurants and menus
+        type: http-request
+        url: '{{#env.DOORDASH_ADAPTER_URL#}}/search'
+      height: 112
+      id: search-http
+      position:
+        x: 780
+        y: 120
+      positionAbsolute:
+        x: 780
+        y: 120
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+      zIndex: 0
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data:
+          - key: ''
+            type: text
+            value: '{{#serialize_food_input.quote_body#}}'
+          type: raw-text
+        headers: 'Content-Type:application/json
+
+          Authorization:Bearer {{#env.DOORDASH_ADAPTER_TOKEN#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 0
+          retry_enabled: false
+          retry_interval: 1000
+        selected: false
+        timeout:
+          max_connect_timeout: 10
+          max_read_timeout: 120
+          max_write_timeout: 30
+        title: Create checkout preview
+        type: http-request
+        url: '{{#env.DOORDASH_ADAPTER_URL#}}/quote'
+      height: 112
+      id: quote-http
+      position:
+        x: 780
+        y: 350
+      positionAbsolute:
+        x: 780
+        y: 350
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+      zIndex: 0
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data:
+          - key: ''
+            type: text
+            value: '{{#serialize_food_input.order_body#}}'
+          type: raw-text
+        headers: 'Content-Type:application/json
+
+          Authorization:Bearer {{#env.DOORDASH_ADAPTER_TOKEN#}}
+
+          Idempotency-Key:{{#start.quote_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 0
+          retry_enabled: false
+          retry_interval: 1000
+        selected: false
+        timeout:
+          max_connect_timeout: 10
+          max_read_timeout: 120
+          max_write_timeout: 30
+        title: Place order (no automatic retry)
+        type: http-request
+        url: '{{#env.DOORDASH_ADAPTER_URL#}}/place-order'
+      height: 112
+      id: order-http
+      position:
+        x: 1120
+        y: 580
+      positionAbsolute:
+        x: 1120
+        y: 580
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+      zIndex: 0
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data: []
+          type: none
+        headers: Authorization:Bearer {{#env.DOORDASH_ADAPTER_TOKEN#}}
+        method: get
+        params: ''
+        retry_config:
+          max_retries: 0
+          retry_enabled: false
+          retry_interval: 1000
+        selected: false
+        timeout:
+          max_connect_timeout: 10
+          max_read_timeout: 60
+          max_write_timeout: 10
+        title: Get order status
+        type: http-request
+        url: '{{#env.DOORDASH_ADAPTER_URL#}}/orders/{{#start.order_id#}}'
+      height: 131
+      id: status-http
+      position:
+        x: 780
+        y: 850
+      positionAbsolute:
+        x: 780
+        y: 850
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+      zIndex: 0
+    - data:
+        desc: ''
+        outputs:
+        - value_selector:
+          - search-http
+          - body
+          variable: result
+        - value_selector:
+          - search-http
+          - status_code
+          variable: http_status
+        selected: false
+        title: Search results
+        type: end
+      height: 114
+      id: search-end
+      position:
+        x: 1160
+        y: 120
+      positionAbsolute:
+        x: 1160
+        y: 120
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+      zIndex: 0
+    - data:
+        desc: Show this checkout preview to the user before requesting approval.
+        outputs:
+        - value_selector:
+          - quote-http
+          - body
+          variable: checkout_preview
+        - value_selector:
+          - quote-http
+          - status_code
+          variable: http_status
+        selected: false
+        title: Checkout preview
+        type: end
+      height: 158
+      id: quote-end
+      position:
+        x: 1160
+        y: 350
+      positionAbsolute:
+        x: 1160
+        y: 350
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+      zIndex: 0
+    - data:
+        desc: ''
+        outputs:
+        - value_selector:
+          - order-http
+          - body
+          variable: order_result
+        - value_selector:
+          - order-http
+          - status_code
+          variable: http_status
+        selected: false
+        title: Order placed
+        type: end
+      height: 114
+      id: order-end
+      position:
+        x: 1500
+        y: 580
+      positionAbsolute:
+        x: 1500
+        y: 580
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+      zIndex: 0
+    - data:
+        desc: ''
+        outputs:
+        - value_selector:
+          - status-http
+          - body
+          variable: order_status
+        - value_selector:
+          - status-http
+          - status_code
+          variable: http_status
+        selected: false
+        title: Order status
+        type: end
+      height: 114
+      id: status-end
+      position:
+        x: 1160
+        y: 850
+      positionAbsolute:
+        x: 1160
+        y: 850
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+      zIndex: 0
+    - data:
+        desc: ''
+        outputs:
+        - value_selector:
+          - start
+          - purchase_confirmation
+          variable: confirmation_received
+        selected: false
+        title: Approval required
+        type: end
+      height: 88
+      id: not-approved-end
+      position:
+        x: 1120
+        y: 760
+      positionAbsolute:
+        x: 1120
+        y: 760
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+      zIndex: 0
+    - data:
+        code: "import json\ndef main(request, delivery_address, budget_aud, restaurant_id,\
+          \ item_ids, quote_id, purchase_confirmation):\n    return {\n      \"search_body\"\
+          : json.dumps({\"request\": request, \"delivery_address\": delivery_address,\
+          \ \"budget_aud\": budget_aud}),\n      \"quote_body\": json.dumps({\"restaurant_id\"\
+          : restaurant_id, \"item_ids\": item_ids, \"delivery_address\": delivery_address,\
+          \ \"budget_aud\": budget_aud}),\n      \"order_body\": json.dumps({\"quote_id\"\
+          : quote_id, \"confirmation\": purchase_confirmation})\n    }\n"
+        code_language: python3
+        desc: Escape user text before HTTP transmission.
+        outputs:
+          order_body:
+            children: null
+            type: string
+          quote_body:
+            children: null
+            type: string
+          search_body:
+            children: null
+            type: string
+        title: Encode food request as JSON
+        type: code
+        variables:
+        - value_selector:
+          - start
+          - request
+          variable: request
+        - value_selector:
+          - start
+          - delivery_address
+          variable: delivery_address
+        - value_selector:
+          - start
+          - budget_aud
+          variable: budget_aud
+        - value_selector:
+          - start
+          - restaurant_id
+          variable: restaurant_id
+        - value_selector:
+          - start
+          - item_ids
+          variable: item_ids
+        - value_selector:
+          - start
+          - quote_id
+          variable: quote_id
+        - value_selector:
+          - start
+          - purchase_confirmation
+          variable: purchase_confirmation
+      id: serialize_food_input
+      position:
+        x: 380
+        y: 282
+      type: custom
+    viewport:
+      x: 37
+      y: 16
+      zoom: 0.75
+  rag_pipeline_variables: []

@@ -1,0 +1,17 @@
+{
+  "email-reply-refiner.yml": {
+    "source_app_id": "e29c4e9c-e2a9-49d7-92e6-53bd889482d0",
+    "source_workflow_id": "3526505b-cc76-4c6b-8a88-72949d09ecc4",
+    "dsl_version": "0.7.0"
+  },
+  "food-ordering.yml": {
+    "source_app_id": "c61d1f1e-8b53-4646-882d-7b24577a58da",
+    "source_workflow_id": "d430679a-a1e2-45eb-86e5-32505027b638",
+    "dsl_version": "0.7.0"
+  },
+  "chatbot.yml": {
+    "source_app_id": "385a7bde-f8aa-4622-a4d6-4176bda3cbec",
+    "source_workflow_id": "60d0f7da-d6e5-4db4-96b3-d371df4a3a40",
+    "dsl_version": "0.7.0"
+  }
+}
