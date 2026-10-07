@@ -1,0 +1,55 @@
+[
+  {
+    "name": "search_place",
+    "description": "地点检索：用自然语言搜 POI（须同时提供城市 region）",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "自然语言地点需求，如「天安门附近停车场」"
+        },
+        "region": {
+          "type": "string",
+          "description": "城市，如「北京」"
+        }
+      },
+      "required": [
+        "query",
+        "region"
+      ]
+    }
+  },
+  {
+    "name": "plan_direction",
+    "description": "路线规划：用自然语言描述起终点",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "如「从天安门到故宫怎么走」"
+        }
+      },
+      "required": [
+        "query"
+      ]
+    }
+  },
+  {
+    "name": "get_weather",
+    "description": "查询城市天气",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "type": "string",
+          "description": "城市，如「北京」"
+        }
+      },
+      "required": [
+        "region"
+      ]
+    }
+  }
+]

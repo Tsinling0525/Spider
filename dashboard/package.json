@@ -1,0 +1,30 @@
+{
+  "name": "spider-dashboard",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:frontend": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:ui": "vitest run",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "dompurify": "^3.2.7",
+    "lucide-svelte": "0.475.0",
+    "marked": "^15.0.12"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "5.1.1",
+    "@testing-library/svelte": "5.4.2",
+    "jsdom": "29.1.1",
+    "svelte": "5.56.8",
+    "svelte-check": "4.7.5",
+    "typescript": "5.9.3",
+    "vite": "6.4.3",
+    "vitest": "4.1.11"
+  }
+}

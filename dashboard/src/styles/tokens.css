@@ -1,0 +1,57 @@
+/* Mantle's app-owned type, spacing, radii and motion, adapted for an Octop-style
+   personal dashboard. One token system owns the entire shell. */
+:root {
+  color-scheme: light;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, monospace;
+  --accent: #e94d72;
+  --accent-text: #fff;
+  --accent-wash: #fcecf1;
+  --text: #222532;
+  --text-dim: #697182;
+  --text-faint: #9aa2b2;
+  --line: #edf0f4;
+  --line-strong: #dfe4ec;
+  --chrome-sidebar: #fbfcfe;
+  --content-plane: #fff;
+  --content-soft: #f7f8fa;
+  --content-raised: #fff;
+  --success: #269a76;
+  --danger: #ce4357;
+  --blue: #527aee;
+  --blue-wash: #edf2ff;
+  --type-body: 0.875rem;
+  --type-caption: 0.75rem;
+  --type-micro: 0.6875rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --radius-small: 0.5rem;
+  --radius-card: 0.875rem;
+  --radius-control: 1rem;
+  --radius-round: 999px;
+  --motion-feedback: 100ms;
+  --motion-state: 180ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --shadow-raised: 0 4px 20px rgb(37 41 56 / 5%);
+  --shadow-float: 0 20px 80px rgb(24 32 54 / 16%);
+  --frame: 58rem;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --text: #eef0f6;
+  --text-dim: #a3acbe;
+  --text-faint: #788398;
+  --line: #292d38;
+  --line-strong: #3a4050;
+  --chrome-sidebar: #181b23;
+  --content-plane: #1c1f29;
+  --content-soft: #242835;
+  --content-raised: #252935;
+  --accent-wash: #392534;
+  --blue-wash: #252f4c;
+  --shadow-raised: 0 4px 20px rgb(0 0 0 / 10%);
+}
