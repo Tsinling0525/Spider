@@ -1,8 +1,8 @@
 # Spider
 
-Spider 是一个用 Go 实现的 **product backend / capability backend**。它是客户端访问外部服务、业务数据和 AI Workflow 的唯一后端入口，负责确定性的产品能力，而不是在自身内部实现 agent 行为。
+Spider 是一个用 Go 实现的 **产品能力后端与 Agent Runtime**。它为客户端提供外部服务、业务数据和 AI 执行能力的统一入口；确定性的产品能力与自主规划、工具执行分别实现。
 
-当前仓库首先实现了 Gmail 能力，后续可以在同一套边界下扩展 Calendar、数据库、天气、文件和其他外部服务。
+当前仓库已实现 Gmail 能力和 Agent 的 Google 主日历只读工具，后续可以在同一套边界下扩展数据库、天气、文件和其他外部服务。
 
 ## 个人 Dashboard
 
@@ -10,16 +10,15 @@ Spider 是一个用 Go 实现的 **product backend / capability backend**。它�
 
 `cmd/dashboardd` 提供独立的 Go 服务，默认监听 `127.0.0.1:8083`；配置模板是 [`.env.dashboard.example`](.env.dashboard.example)。开发启动用 `make dev-dashboard`，会同时启动前后端并读取 `.env.dashboard`；完整模型配置和构建说明见 [Dashboard README](dashboard/README.md)。
 
-
 ## 职责边界
 
 核心原则：
 
-> 需要推理、编排或组合多个能力的任务交给 Dify Workflow；确定性的产品后端能力由 Spider 实现。
+> 确定性的产品能力由 Spider 实现；需要自主规划的任务由 Spider Agent Runtime 调用模型和工具执行。Dify Workflow 保留为可选的固定流程后端。
 
 进一步约束：
 
-> UI 直接展示的数据尽量由 Spider 提供；AI 派生的数据由 Dify 提供。
+> UI 直接展示的数据尽量由 Spider 提供；AI 派生的数据由配置的模型或 Workflow 执行后端生成。
 
 典型路由：
 
@@ -28,20 +27,28 @@ Spider 是一个用 Go 实现的 **product backend / capability backend**。它�
 | 获取最近 20 封邮件并展示 | Spider |
 | 加载完整邮件 thread | Spider |
 | 标记已读、归档或发送用户确认后的内容 | Spider |
-| 判断哪些邮件需要处理并生成摘要 | Dify Workflow |
-| 根据邮件草拟回复并判断是否需要查询日历 | Dify Workflow |
-| 多工具调用、Workflow 内的 LLM 推理和 RAG | Dify Workflow |
+| 自主判断哪些邮件需要处理、读取日历并起草回复 | Spider Agent Runtime |
+| 邮件回复的固定流程生成与润色 | Dify Workflow（可选） |
+| 自主选择工具、观察结果、继续执行 | Spider Agent Runtime |
+| 已配置的固定 Workflow 与 RAG 流程 | Dify Workflow（可选） |
 | 通用对话和流式回答 | llmd → Dify Chatflow |
 
 整体调用关系：
 
 ```text
 Client ──→ Spider ──→ Gmail / Calendar / DB / Weather API
-                   └─→ Dify Workflow ──→ tools / LLM / RAG
+                   ├─→ Agent Runtime ──→ Model / capabilities
+                   └─→ Dify Workflow（可选）──→ tools / LLM / RAG
 Client ──→ llmd ──→ Dify Chatflow ──→ LLM
 ```
 
-Dify 永远位于 Spider 后面。客户端只依赖 Spider 的稳定 API，因此未来替换 Workflow 引擎时不需要同步改造客户端。
+客户端只依赖 Spider 的稳定 API。Agent 的模型通过 `Backend` 接口替换；现有 Dify Workflow 接口继续保留，原生邮件 Agent 不依赖 Dify。
+
+## 自主邮件 Agent（agentd）
+
+`cmd/agentd` 在 Go 中执行模型 → 工具 → 观察结果的循环，支持邮件查询、读取、Google 主日历查询、回复草稿审批及发送。运行记录、模型和工具消息、审批和操作事件保存在服务端；支持取消、审批后续跑及重启后的显式恢复。
+
+`agentd` 包含现有 `contactd` HTTP 接口，可在同一地址替代 `contactd`。不能让两个进程共用同一个数据目录。配置、运行方式和 Agent API 见 [自主邮件 Agent](docs/agent.md)，环境变量模板见 [`.env.agent.example`](.env.agent.example)。
 
 ## Spider 负责什么
 
@@ -52,10 +59,11 @@ Dify 永远位于 Spider 后面。客户端只依赖 Spider 的稳定 API，因�
 - 用户确认、权限策略和高风险操作控制
 - Workflow 调用、输入裁剪、结构化输出校验和降级
 - 产品操作与 Workflow run 的统一审计
+- 自主 Agent 执行、工具权限边界、发送审批和运行状态持久化
 
 Spider 不负责：
 
-- 在 Go 代码中硬编码 agent 决策树
+- 在 Go 代码中硬编码任务规划决策树（工具选择由模型完成）
 - 让客户端直接访问 Dify 或持有 Dify API Key
 - 把确定性的列表和详情查询包装成 Workflow
 - 默认授予 Workflow 写入、发送或删除权限
@@ -118,7 +126,11 @@ MCP 网关与浏览器会话的部署见 [`script/MCP-DEPLOYMENT.md`](script/MCP
 
 完整的客户端接口、鉴权方式、请求响应字段和错误码见 [`docs/api/README.md`](docs/api/README.md)。
 
-## 运行
+## Contact 服务（contactd）
+
+`cmd/contactd` 提供 Gmail 授权、邮件读取、草稿生成、发送和相关人工审核接口，默认监听 `127.0.0.1:8080`。
+
+服务入口和二进制由 `spider-mail` 更名为 `contactd`；邮件接口迁移至 `/contact/*`（替代 `/v1/email/*`），前后端需要同步更新；`SPIDER_*` 环境变量和数据目录保持兼容。`DIFY_USER` 的历史默认值 `spider-mail-service` 保留，以维持已有 Dify 会话身份。
 
 需要 Go 1.24+ 和 Google Cloud OAuth Client。只查阅邮件时不需要 Dify Workflow。
 
@@ -128,7 +140,7 @@ cp .env.example .env
 set -a && source .env && set +a
 go mod download
 go test ./...
-go run ./cmd/spider-mail
+go run ./cmd/contactd
 ```
 
 开发时可用 `GMAIL_CREDENTIALS_FILE` 直接读取 Google 下载的 OAuth JSON，不必把 Client ID 和 Client Secret 拆进 `.env`。Google OAuth Client 的 redirect URI 应与 `GMAIL_REDIRECT_URL` 完全一致。服务默认监听 `127.0.0.1:8080`；此时可省略 `SPIDER_API_KEY`。监听非回环地址时仍强制要求 API key。Gmail 授权和接口调用方式统一维护在接口文档中。
@@ -193,7 +205,7 @@ HTTP API → domain service → provider interface → external adapter
 ```bash
 go test ./...
 go vet ./...
-go build ./cmd/spider-mail
+go build ./cmd/contactd
 ```
 
 ## Life 服务（lifed）

@@ -1,6 +1,7 @@
 /data/
 /.env
 /spider-mail
+/contactd
 *.log
 .DS_Store
 
@@ -8,4 +9,5 @@
 /bin/
 
 /.env.llm
+/.env.agent
 /.env.dashboard

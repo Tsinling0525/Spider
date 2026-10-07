@@ -250,7 +250,7 @@ Reviewer 不重写草稿，只做检查。检查重点：虚构事实、未经�
 ## mantle-app 交互约束
 
 1. 用户在邮件线程中输入可选 guidance，点击 **Draft with AI**。
-2. mantle-app 调用 Spider `POST /v1/email/drafts`；Dify 不被客户端直接调用，API key 只存在 Spider 环境中。
+2. mantle-app 调用 Spider `POST /contact/drafts`；Dify 不被客户端直接调用，API key 只存在 Spider 环境中。
 3. 返回草稿始终进入可编辑文本框，显示 `warnings` 和 **AI draft — review before sending**。
 4. `needs_human_input=true` 时必须突出警告；仍允许编辑，但不能跳过最终确认。
 5. 用户点击 **Review send** 后再次查看收件人、主题和正文，明确点击 **Send reply** 才调用 Spider 发送接口。
@@ -277,6 +277,6 @@ Reviewer 不重写草稿，只做检查。检查重点：虚构事实、未经�
 2. 在 Dify 中配置模型凭据并完成所有验收用例。
 3. 发布 Workflow，复制该 Workflow 应用的 API key。
 4. Spider `.env` 设置 `DIFY_BASE_URL`、`DIFY_API_KEY`、`DIFY_USER`。
-5. 重启 Spider，调用 `POST /v1/email/drafts` 做端到端验证。
+5. 重启 Spider，调用 `POST /contact/drafts` 做端到端验证。
 
 `DIFY_API_KEY` 是访问已发布工作流所必需的运行时凭据；它不能放入 mantle-app，也不能提交到 Git。

@@ -1,6 +1,10 @@
 # Spider HTTP API
 
-本文档是 Spider 对客户端提供的 HTTP API 的统一入口。当前版本为 `v1`，首先覆盖 Gmail 授权、邮件读取、草稿生成和人工确认发送。
+本文档是 Spider 对客户端提供的 HTTP API 的统一入口。接口覆盖 Gmail 授权、邮件读取、草稿生成和人工确认发送。
+
+联系服务由 `contactd` 监听 `:8080`，使用 `/contact/*` 邮件接口，替代原 `/v1/email/*` 路径；前后端需要同步更新。
+
+自主邮件 Agent 由 `agentd` 提供，可替代 `contactd` 并保留这些接口；模型直接调用工具，Dify 为可选依赖。运行、审批、取消与恢复接口见 [Agent API](../agent.md)。
 
 生活服务由独立 `lifed` 监听 `:8081`，使用 `LIFE_API_KEY`，不使用 `/v1` 前缀：
 
@@ -12,7 +16,7 @@
 ## 基本约定
 
 - 默认地址：`http://127.0.0.1:8080`
-- API 前缀：`/v1`
+- 邮件接口前缀：`/contact`；OAuth 和人工审核接口继续使用 `/v1`
 - 时间格式：RFC 3339，例如 `2026-09-10T06:00:00Z`
 - JSON 请求体上限：1 MiB
 - JSON 请求包含未声明字段时返回 `400 invalid_json`
@@ -31,10 +35,10 @@ Authorization: Bearer <SPIDER_API_KEY>
 | `GET` | `/v1/oauth/gmail/start` | 是 | 创建 Gmail OAuth 授权地址 |
 | `GET` | `/auth/google/callback` | 否 | Google OAuth 回调 |
 | `GET` | `/v1/oauth/gmail/status` | 是 | 查询 Gmail 是否已连接 |
-| `GET` | `/v1/email/threads` | 是 | 查询邮件线程摘要列表 |
-| `GET` | `/v1/email/threads/{thread_id}` | 是 | 获取完整邮件线程 |
-| `POST` | `/v1/email/drafts` | 是 | 根据邮件线程生成回复草稿 |
-| `POST` | `/v1/email/send` | 是 | 人工确认后发送邮件 |
+| `GET` | `/contact/threads` | 是 | 查询邮件线程摘要列表 |
+| `GET` | `/contact/threads/{thread_id}` | 是 | 获取完整邮件线程 |
+| `POST` | `/contact/drafts` | 是 | 根据邮件线程生成回复草稿 |
+| `POST` | `/contact/send` | 是 | 人工确认后发送邮件 |
 
 ## 错误格式
 
@@ -135,7 +139,7 @@ Google OAuth 的重定向地址，由 Google 调用，不要求 Spider Bearer To
 
 ## Email
 
-### `GET /v1/email/threads`
+### `GET /contact/threads`
 
 获取 Gmail 线程摘要列表，不包含邮件正文。
 
@@ -151,7 +155,7 @@ Google OAuth 的重定向地址，由 Google 调用，不要求 Spider Bearer To
 
 ```bash
 curl -H "Authorization: Bearer $SPIDER_API_KEY" \
-  'http://127.0.0.1:8080/v1/email/threads?query=is:inbox&page_size=25'
+  'http://127.0.0.1:8080/contact/threads?query=is:inbox&page_size=25'
 ```
 
 响应 `200 OK`：
@@ -177,7 +181,7 @@ curl -H "Authorization: Bearer $SPIDER_API_KEY" \
 
 最后一页不返回 `next_page_token`。
 
-### `GET /v1/email/threads/{thread_id}`
+### `GET /contact/threads/{thread_id}`
 
 获取一个线程的完整消息时间线。消息按发送时间升序排列。
 
@@ -214,7 +218,7 @@ curl -H "Authorization: Bearer $SPIDER_API_KEY" \
 
 当前接口只返回附件元数据，不下载附件内容。
 
-### `POST /v1/email/drafts`
+### `POST /contact/drafts`
 
 读取完整 Gmail 线程，将经过大小限制的上下文发送给 Dify Workflow，并返回结构化草稿。该接口只生成草稿，不发送邮件。
 
@@ -256,7 +260,7 @@ curl -H "Authorization: Bearer $SPIDER_API_KEY" \
 }
 ```
 
-### `POST /v1/email/send`
+### `POST /contact/send`
 
 发送客户端最终展示并经用户确认的纯文本邮件。客户端不应直接复用未经展示的模型输出。
 

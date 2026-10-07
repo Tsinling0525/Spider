@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"golang.org/x/oauth2"
+	"google.golang.org/api/calendar/v3"
 	"google.golang.org/api/gmail/v1"
 )
 
@@ -20,8 +21,9 @@ type Flow struct {
 }
 
 type pendingState struct {
-	expiresAt time.Time
-	sendScope bool
+	expiresAt     time.Time
+	sendScope     bool
+	calendarScope bool
 }
 
 func NewFlow(config *oauth2.Config, store *FileTokenStore) *Flow {
@@ -29,6 +31,15 @@ func NewFlow(config *oauth2.Config, store *FileTokenStore) *Flow {
 }
 
 func (f *Flow) Start(sendScope bool) (string, error) {
+	return f.start(sendScope, false)
+}
+
+// StartWithCalendar adds read-only calendar events access only when requested.
+func (f *Flow) StartWithCalendar(sendScope bool) (string, error) {
+	return f.start(sendScope, true)
+}
+
+func (f *Flow) start(sendScope, calendarScope bool) (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
@@ -40,9 +51,9 @@ func (f *Flow) Start(sendScope bool) (string, error) {
 			delete(f.states, key)
 		}
 	}
-	f.states[state] = pendingState{expiresAt: time.Now().Add(10 * time.Minute), sendScope: sendScope}
+	f.states[state] = pendingState{expiresAt: time.Now().Add(10 * time.Minute), sendScope: sendScope, calendarScope: calendarScope}
 	f.mu.Unlock()
-	config := f.scopedConfig(sendScope)
+	config := f.scopedConfig(sendScope, calendarScope)
 	return config.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("include_granted_scopes", "true")), nil
 }
 
@@ -57,7 +68,7 @@ func (f *Flow) Complete(ctx context.Context, state, code string) error {
 	if code == "" {
 		return errors.New("OAuth code is missing")
 	}
-	token, err := f.scopedConfig(pending.sendScope).Exchange(ctx, code)
+	token, err := f.scopedConfig(pending.sendScope, pending.calendarScope).Exchange(ctx, code)
 	if err != nil {
 		return err
 	}
@@ -74,11 +85,14 @@ func (f *Flow) Connected() bool {
 	return err == nil
 }
 
-func (f *Flow) scopedConfig(sendScope bool) *oauth2.Config {
+func (f *Flow) scopedConfig(sendScope, calendarScope bool) *oauth2.Config {
 	copy := *f.config
 	copy.Scopes = []string{gmail.GmailReadonlyScope}
 	if sendScope {
 		copy.Scopes = append(copy.Scopes, gmail.GmailSendScope)
+	}
+	if calendarScope {
+		copy.Scopes = append(copy.Scopes, calendar.CalendarEventsReadonlyScope)
 	}
 	return &copy
 }

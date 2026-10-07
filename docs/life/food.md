@@ -25,7 +25,7 @@ go build -o bin/lifed ./cmd/lifed
 
 公开 API 默认只绑定 loopback。改成非 loopback 时必须配置 `LIFE_API_KEY`；客户端传 `Authorization: Bearer <key>`。内部适配器始终要求 `LIFE_ADAPTER_TOKEN`。密钥不得使用 `VITE_` 变量或进入浏览器。
 
-Mantle 的 Vite 和 Tauri 配置使用 `SPIDER_LIFE_BASE_URL`（默认 `http://127.0.0.1:8081`）、可选的 `SPIDER_LIFE_API_KEY`。这与原来的 Spider 邮件服务 `:8080` 分开。
+Mantle 的 Vite 和 Tauri 配置使用 `SPIDER_LIFE_BASE_URL`（默认 `http://127.0.0.1:8081`）、可选的 `SPIDER_LIFE_API_KEY`。这与Spider `contactd` 联系服务 `:8080` 分开。
 
 ## 协议
 
