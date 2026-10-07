@@ -4,6 +4,13 @@ Spider 是一个用 Go 实现的 **product backend / capability backend**。它�
 
 当前仓库首先实现了 Gmail 能力，后续可以在同一套边界下扩展 Calendar、数据库、天气、文件和其他外部服务。
 
+## 个人 Dashboard
+
+[`dashboard/`](dashboard/README.md) 是独立的 Svelte 5 前端，参照 Octop 的对话与连接器交互，沿用 Mantle 的组件、接口适配和样式结构。包含多轮聊天、自定义 MCP 连接器与工具确认、麦克风转写及 TTS 回复。
+
+`cmd/dashboardd` 提供独立的 Go 服务，默认监听 `127.0.0.1:8083`；配置模板是 [`.env.dashboard.example`](.env.dashboard.example)。开发启动用 `make dev-dashboard`，会同时启动前后端并读取 `.env.dashboard`；完整模型配置和构建说明见 [Dashboard README](dashboard/README.md)。
+
+
 ## 职责边界
 
 核心原则：

@@ -1,0 +1,27 @@
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #app { width: 100%; height: 100%; margin: 0; }
+body { color: var(--text); background: var(--content-plane); font: 400 var(--type-body) / 1.55 var(--font-ui); -webkit-font-smoothing: antialiased; }
+button, input, textarea, select { font: inherit; }
+button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; background: none; color: inherit; cursor: pointer; transition: background var(--motion-feedback), color var(--motion-feedback); }
+button:disabled { cursor: default; opacity: .45; }
+button:not(:disabled):hover { background: var(--content-soft); }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+input, textarea, select { background: var(--content-plane); color: var(--text); border: 1px solid var(--line-strong); border-radius: var(--radius-small); padding: 10px 12px; }
+textarea { resize: vertical; }
+input::placeholder, textarea::placeholder { color: var(--text-faint); }
+svg { flex-shrink: 0; }
+button svg { width: 18px; height: 18px; stroke-width: 1.65; }
+h1, h2, h3, p { margin: 0; }
+a { color: var(--blue); }
+.icon-button { width: 34px; height: 34px; border-radius: 9px; color: var(--text-dim); flex-shrink: 0; }
+.primary { background: var(--accent); color: white; padding: 10px 17px; border-radius: 9px; font-weight: 550; }
+.primary:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 90%, black); }
+.secondary { border: 1px solid var(--line-strong); padding: 9px 14px; border-radius: 9px; }
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; border-radius: 6px; padding: 3px 7px; background: var(--content-soft); color: var(--text-dim); white-space: nowrap; }
+.muted { color: var(--text-dim); }
+.error { color: var(--danger); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+::selection { background: var(--accent-wash); }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; scroll-behavior: auto !important; } }

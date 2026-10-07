@@ -1,0 +1,58 @@
+[
+  {
+    "name": "search_emails",
+    "description": "Search recent emails in INBOX (IMAP)",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "IMAP search criteria, default ALL"
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Max messages, default 10"
+        }
+      }
+    }
+  },
+  {
+    "name": "read_email",
+    "description": "Read a single email body by UID",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "IMAP UID"
+        }
+      },
+      "required": [
+        "uid"
+      ]
+    }
+  },
+  {
+    "name": "send_email",
+    "description": "Send a plain-text email via SMTP",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "to": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "to",
+        "subject",
+        "body"
+      ]
+    }
+  }
+]
