@@ -1,3 +1,4 @@
+import type { Translator } from "./i18n";
 import type { StatsCounts } from "./memory-types";
 
 export interface MemoryConfig {
@@ -54,17 +55,17 @@ export const memoryLayers = [
 export type MemoryLayer = typeof memoryLayers[number]["id"];
 export const kindLabels: Record<string, string> = { Fact: "事实", Preference: "偏好", Decision: "决策", Task: "任务", ConflictCandidate: "冲突", User: "用户", Person: "人物", Project: "项目", pending: "待处理", needs_review: "待审核", conflict: "冲突", promoted: "已提升", rejected: "已拒绝", high: "高", medium: "中", low: "低" };
 export function display(value: unknown): string { return value == null ? "" : Array.isArray(value) ? value.map(display).join("、") : typeof value === "object" ? JSON.stringify(value, null, 2) : String(value); }
-export function phaseLabel(job: MemoryJob): string { return ({ waiting_idle: "等待当前对话结束", backup: "备份记忆数据库", vacuum: "压缩数据库", organizing: "提炼与整理记忆", done: "已完成", failed: "失败" } as Record<string, string>)[job.phase || ""] || "准备中"; }
-export function jobSummary(job: MemoryJob): string {
+export function phaseLabel(job: MemoryJob, t: Translator = (key) => key): string { return t(({ waiting_idle: "等待当前对话结束", backup: "备份记忆数据库", vacuum: "压缩数据库", organizing: "提炼与整理记忆", done: "已完成", failed: "失败" } as Record<string, string>)[job.phase || ""] || "准备中"); }
+export function jobSummary(job: MemoryJob, t: Translator = (key, params = {}) => key.replace(/\{(\d+)\}/g, (match, name) => String(params[name] ?? match))): string {
   const result = job.result;
   if (!result) return "";
-  if (job.kind === "slim") return `数据库：${Number(result.bytes_before || 0).toLocaleString()} → ${Number(result.bytes_after || 0).toLocaleString()} 字节。`;
+  if (job.kind === "slim") return t("数据库：{0} → {1} 字节。", { 0: Number(result.bytes_before || 0).toLocaleString(), 1: Number(result.bytes_after || 0).toLocaleString() });
   if (job.kind === "extract" && Array.isArray(result.results)) {
     const rows = result.results as Record<string, unknown>[];
     const candidates = rows.reduce((sum, item) => sum + Number(item.candidates || 0), 0);
     const promoted = rows.reduce((sum, item) => sum + Number((item.promotion as Record<string, unknown> | null)?.promoted || 0), 0);
     const episodes = rows.reduce((sum, item) => sum + Number((item.episodes as Record<string, unknown> | null)?.extracted || 0), 0);
-    return `处理 ${rows.length} 个会话，提取 ${candidates} 条候选，确认 ${promoted} 条原子记忆，记录 ${episodes} 个情景。`;
+    return t("处理 {0} 个会话，提取 {1} 条候选，确认 {2} 条原子记忆，记录 {3} 个情景。", { 0: rows.length, 1: candidates, 2: promoted, 3: episodes });
   }
   return "";
 }

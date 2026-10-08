@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n";
   import { Plus, X, Mic, Square, ArrowUp, AudioLines, Plug, Check, LoaderCircle } from "lucide-svelte";
   import type { Connector } from "../lib/dashboard";
   import { emptyModelConfiguration, modelOptions, selectionValue, parseSelection, type ModelConfiguration, type ModelSelection } from "../lib/models";
@@ -18,34 +19,34 @@
   <div class="composer" class:recording>
     {#if selected.length}
       <div class="chips">{#each selected as id}{@const connector = connectors.find((item) => item.id === id)}
-        <span class="chip"><Plug size={13} />{connector?.name || "已移除连接器"}<button aria-label={`取消选择 ${connector?.name || "连接器"}`} disabled={busy || locked} onclick={() => toggle(id)}><X size={12} /></button></span>
+        <span class="chip"><Plug size={13} />{connector?.name || $t("已移除连接器")}<button aria-label={$t("取消选择 {0}", { 0: connector?.name || $t("连接器") })} disabled={busy || locked} onclick={() => toggle(id)}><X size={12} /></button></span>
       {/each}</div>
     {/if}
-    <textarea aria-label="消息" bind:value={draft} placeholder={recording ? "正在聆听…点击停止，转换成文字" : "和 Spider 说点什么吧…"} rows="3" disabled={busy || locked || recording || transcribing}
+    <textarea aria-label={$t("消息")} bind:value={draft} placeholder={recording ? $t("正在聆听…点击停止，转换成文字") : $t("和 Spider 说点什么吧…")} rows="3" disabled={busy || locked || recording || transcribing}
       onkeydown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.isComposing && event.keyCode !== 229) { event.preventDefault(); if (draft.trim() && !busy && !locked) onsend(); } }}></textarea>
     <div class="toolbar">
       <div class="left">
         <div class="picker-wrap">
-          <button class="round add" aria-label="选择连接器" aria-expanded={pickerOpen} disabled={busy || locked} onclick={() => pickerOpen = !pickerOpen}><Plus /></button>
+          <button class="round add" aria-label={$t("选择连接器")} aria-expanded={pickerOpen} disabled={busy || locked} onclick={() => pickerOpen = !pickerOpen}><Plus /></button>
           {#if pickerOpen}
             <div class="picker">
-              <div class="picker-title">本次对话的连接器 <button class="icon-button" aria-label="关闭连接器选择" onclick={() => pickerOpen = false}><X /></button></div>
-              {#each available as connector}<button class="picker-item" onclick={() => toggle(connector.id)}><Plug size={16} /><span>{connector.name}<small>{connector.tools.length} 个工具</small></span>{#if selected.includes(connector.id)}<Check size={16} />{/if}</button>{/each}
-              {#if !available.length}<p>添加并测试连接器后，即可在这里选择。</p>{/if}
-              <button class="manage" onclick={() => { pickerOpen = false; onmanage(); }}><Plus size={15} />管理连接器</button>
+              <div class="picker-title">{$t("本次对话的连接器")} <button class="icon-button" aria-label={$t("关闭连接器选择")} onclick={() => pickerOpen = false}><X /></button></div>
+              {#each available as connector}<button class="picker-item" onclick={() => toggle(connector.id)}><Plug size={16} /><span>{connector.name}<small>{$t("{0} 个工具", { 0: connector.tools.length })}</small></span>{#if selected.includes(connector.id)}<Check size={16} />{/if}</button>{/each}
+              {#if !available.length}<p>{$t("添加并测试连接器后，即可在这里选择。")}</p>{/if}
+              <button class="manage" onclick={() => { pickerOpen = false; onmanage(); }}><Plus size={15} />{$t("管理连接器")}</button>
             </div>
           {/if}
         </div>
-        {#if chatModels.length}<select class="model" aria-label="聊天模型" value={selectionValue(modelConfiguration.active.chat)} disabled={busy || locked || recording || transcribing} onchange={(event) => onmodelselect?.(parseSelection(event.currentTarget.value))}><option value="">选择聊天模型</option>{#each chatModels as option}<option value={selectionValue({ provider_id: option.provider.id, model_id: option.model.id })}>{option.model.label || option.model.id} · {option.provider.name}</option>{/each}</select>{:else}<button class="model" onclick={onmodelmanage}>配置模型</button>{/if}
+        {#if chatModels.length}<select class="model" aria-label={$t("聊天模型")} value={selectionValue(modelConfiguration.active.chat)} disabled={busy || locked || recording || transcribing} onchange={(event) => onmodelselect?.(parseSelection(event.currentTarget.value))}><option value="">{$t("选择聊天模型")}</option>{#each chatModels as option}<option value={selectionValue({ provider_id: option.provider.id, model_id: option.model.id })}>{option.model.label || option.model.id} · {option.provider.name}</option>{/each}</select>{:else}<button class="model" onclick={onmodelmanage}>{$t("配置模型")}</button>{/if}
       </div>
       <div class="right">
-        <button class="round" class:active={autoSpeak} aria-label="自动朗读回复" aria-pressed={autoSpeak} title="自动朗读回复" disabled={!speechEnabled} onclick={() => autoSpeak = !autoSpeak}><AudioLines /></button>
-        <button class="round" class:record-button={recording} aria-label={recording ? "停止录音" : "开始录音"} title={voiceEnabled ? "语音输入" : "需配置语音转写模型"} disabled={!voiceEnabled || busy || locked || transcribing} onclick={onrecord}>{#if recording}<Square size={15} />{:else if transcribing}<LoaderCircle class="spin" />{:else}<Mic />{/if}</button>
-        <button class="send" aria-label="发送消息" disabled={!draft.trim() || busy || locked || recording || transcribing} onclick={onsend}>{#if busy}<LoaderCircle class="spin" />{:else}<ArrowUp />{/if}</button>
+        <button class="round" class:active={autoSpeak} aria-label={$t("自动朗读回复")} aria-pressed={autoSpeak} title={$t("自动朗读回复")} disabled={!speechEnabled} onclick={() => autoSpeak = !autoSpeak}><AudioLines /></button>
+        <button class="round" class:record-button={recording} aria-label={recording ? $t("停止录音") : $t("开始录音")} title={voiceEnabled ? $t("语音输入") : $t("需配置语音转写模型")} disabled={!voiceEnabled || busy || locked || transcribing} onclick={onrecord}>{#if recording}<Square size={15} />{:else if transcribing}<LoaderCircle class="spin" />{:else}<Mic />{/if}</button>
+        <button class="send" aria-label={$t("发送消息")} disabled={!draft.trim() || busy || locked || recording || transcribing} onclick={onsend}>{#if busy}<LoaderCircle class="spin" />{:else}<ArrowUp />{/if}</button>
       </div>
     </div>
   </div>
-  <div class="hint">{#if recording}<span class="live-dot"></span>正在录音 · 最长 2 分钟{:else if transcribing}正在将语音转换成文字…{:else}Enter 发送，Shift + Enter 换行 <span>·</span> AI 回复请留意核实{/if}</div>
+  <div class="hint">{#if recording}<span class="live-dot"></span>{$t("正在录音 · 最长 2 分钟")}{:else if transcribing}{$t("正在将语音转换成文字…")}{:else}{$t("Enter 发送，Shift + Enter 换行")} <span>·</span> {$t("AI 回复请留意核实")}{/if}</div>
 </div>
 
 <style>

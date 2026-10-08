@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n";
   import { onMount } from "svelte";
   import { X, ExternalLink, LoaderCircle, Check, RefreshCw, ShieldCheck } from "lucide-svelte";
   import type { Connector, DashboardPort } from "../lib/dashboard";
@@ -33,7 +34,7 @@
   const secretKey = $derived(preset.authKind === "mail" ? "password" : preset.authKind === "oauth" ? "access_token" : preset.authKind === "token" ? "token" : "api_key");
   const secretLabel = $derived(preset.authKind === "mail" ? "授权码" : preset.authKind === "token" || preset.kind === "baidu-map" || preset.authKind === "oauth" ? "Token" : "API Key");
   onMount(() => {
-    name = connector?.name || preset.name; description = connector?.description || preset.description; enabled = connector?.enabled ?? true;
+    name = connector?.name || $t(preset.name); description = connector?.description || $t(preset.description); enabled = connector?.enabled ?? true;
     provider = connector?.credentials?.mail_provider || "qq"; email = connector?.credentials?.email || "";
     imapHost = connector?.credentials?.imap_host || ""; smtpHost = connector?.credentials?.smtp_host || "";
     imapPort = Number(connector?.credentials?.imap_port || "993"); smtpPort = Number(connector?.credentials?.smtp_port || "587");
@@ -104,38 +105,38 @@
 
 <dialog bind:this={dialog} oncancel={(event) => { if (working) event.preventDefault(); else onclose(); }}>
   <form onsubmit={save}>
-    <header><img src={preset.logo} alt="" /><div><h2>{connector ? "编辑" : "连接"} {preset.name}</h2><p>{preset.description}</p></div><button type="button" class="icon-button" aria-label="关闭" disabled={working} onclick={onclose}><X /></button></header>
+    <header><img src={preset.logo} alt="" /><div><h2>{connector ? $t("编辑") : $t("连接")} {$t(preset.name)}</h2><p>{$t(preset.description)}</p></div><button type="button" class="icon-button" aria-label={$t("关闭")} disabled={working} onclick={onclose}><X /></button></header>
     <div class="fields">
-      <div class="auth-guide"><ShieldCheck size={17} /><p>{preset.hint}</p></div>
-      {#if preset.authorizeURL}<div class="guide-actions"><a class="secondary" href={preset.authorizeURL} target="_blank" rel="noreferrer">打开授权页<ExternalLink size={13} /></a><a href={preset.guideURL} target="_blank" rel="noreferrer">使用指南<ExternalLink size={12} /></a></div>{/if}
+      <div class="auth-guide"><ShieldCheck size={17} /><p>{$t(preset.hint)}</p></div>
+      {#if preset.authorizeURL}<div class="guide-actions"><a class="secondary" href={preset.authorizeURL} target="_blank" rel="noreferrer">{$t("打开授权页")}<ExternalLink size={13} /></a><a href={preset.guideURL} target="_blank" rel="noreferrer">{$t("使用指南")}<ExternalLink size={12} /></a></div>{/if}
       <fieldset disabled={working || authorizing}>
-        <label>连接器名称<input bind:value={name} maxlength="80" required /></label>
-        <label>描述<input bind:value={description} maxlength="1024" /></label>
+        <label>{$t("连接器名称")}<input bind:value={name} maxlength="80" required /></label>
+        <label>{$t("描述")}<input bind:value={description} maxlength="1024" /></label>
         {#if preset.authKind === "mail"}
-          <label>邮箱服务商<select bind:value={provider}>{#each mailProviders as item}<option value={item.id}>{item.label}</option>{/each}</select></label>
-          <label>邮箱地址<input type="email" bind:value={email} placeholder={mailProvider.placeholder} required /></label>
+          <label>{$t("邮箱服务商")}<select bind:value={provider}>{#each mailProviders as item}<option value={item.id}>{$t(item.label)}</option>{/each}</select></label>
+          <label>{$t("邮箱地址")}<input type="email" bind:value={email} placeholder={mailProvider.placeholder} required /></label>
         {/if}
         {#if preset.authKind !== "oauth" || manual}
-          <label>{secretLabel}<input type="password" bind:value={secret} autocomplete="new-password" placeholder={connector?.has_credentials ? "已保存凭据，留空表示不修改" : preset.kind === "baidu-map" ? "sk-ap-…" : `粘贴你的${secretLabel}`} required={!connector?.has_credentials} /></label>
-          {#if preset.authKind === "mail" && mailProvider.guideURL}<a class="inline-guide" href={mailProvider.guideURL} target="_blank" rel="noreferrer">如何获取邮箱授权码<ExternalLink size={12} /></a>{/if}
+          <label>{$t(secretLabel)}<input type="password" bind:value={secret} autocomplete="new-password" placeholder={connector?.has_credentials ? $t("已保存凭据，留空表示不修改") : preset.kind === "baidu-map" ? "sk-ap-…" : $t("粘贴你的{0}", { 0: $t(secretLabel) })} required={!connector?.has_credentials} /></label>
+          {#if preset.authKind === "mail" && mailProvider.guideURL}<a class="inline-guide" href={mailProvider.guideURL} target="_blank" rel="noreferrer">{$t("如何获取邮箱授权码")}<ExternalLink size={12} /></a>{/if}
         {/if}
         {#if preset.authKind === "mail" && provider === "custom"}
-          <div class="host-row"><label>IMAP 服务器<input bind:value={imapHost} placeholder="imap.example.com" required /></label><label>IMAP 端口<input type="number" min="1" max="65535" bind:value={imapPort} required /></label></div>
-          <div class="host-row"><label>SMTP 服务器<input bind:value={smtpHost} placeholder="smtp.example.com" required /></label><label>SMTP 端口<input type="number" min="1" max="65535" bind:value={smtpPort} required /></label></div>
-          <p class="small-note">IMAP 使用 TLS，SMTP 使用 STARTTLS。</p>
+          <div class="host-row"><label>{$t("IMAP 服务器")}<input bind:value={imapHost} placeholder="imap.example.com" required /></label><label>{$t("IMAP 端口")}<input type="number" min="1" max="65535" bind:value={imapPort} required /></label></div>
+          <div class="host-row"><label>{$t("SMTP 服务器")}<input bind:value={smtpHost} placeholder="smtp.example.com" required /></label><label>{$t("SMTP 端口")}<input type="number" min="1" max="65535" bind:value={smtpPort} required /></label></div>
+          <p class="small-note">{$t("IMAP 使用 TLS，SMTP 使用 STARTTLS。")}</p>
         {/if}
-        <label class="check"><input type="checkbox" bind:checked={enabled} />启用这个连接器</label>
+        <label class="check"><input type="checkbox" bind:checked={enabled} />{$t("启用这个连接器")}</label>
       </fieldset>
       {#if preset.authKind === "oauth"}
-        <div class="oauth"><button type="button" class="primary" disabled={working || authorizing} onclick={authorize}>{#if authorizing}<LoaderCircle class="spin" size={15} />{/if}{authorizing ? "等待 Notion 授权…" : connector ? "重新授权 Notion" : "一键授权"}<ExternalLink size={13} /></button><a href={preset.guideURL} target="_blank" rel="noreferrer">使用指南</a></div>
-        {#if authorizing && authURL}<p class="small-note">在授权窗口中登录并选择工作空间。<a href={authURL} target="spider-notion-oauth" rel="noreferrer">打开授权窗口</a><button type="button" onclick={() => { clearInterval(timer); authorizing = false; }}>取消等待</button></p>{/if}
-        <button type="button" class="manual-toggle" disabled={working || authorizing} onclick={() => manual = !manual}>{manual ? "收起手动 Token" : "手动填写已有 MCP Token"}</button>
+        <div class="oauth"><button type="button" class="primary" disabled={working || authorizing} onclick={authorize}>{#if authorizing}<LoaderCircle class="spin" size={15} />{/if}{authorizing ? $t("等待 Notion 授权…") : connector ? $t("重新授权 Notion") : $t("一键授权")}<ExternalLink size={13} /></button><a href={preset.guideURL} target="_blank" rel="noreferrer">{$t("使用指南")}</a></div>
+        {#if authorizing && authURL}<p class="small-note">{$t("在授权窗口中登录并选择工作空间。")}<a href={authURL} target="spider-notion-oauth" rel="noreferrer">{$t("打开授权窗口")}</a><button type="button" onclick={() => { clearInterval(timer); authorizing = false; }}>{$t("取消等待")}</button></p>{/if}
+        <button type="button" class="manual-toggle" disabled={working || authorizing} onclick={() => manual = !manual}>{manual ? $t("收起手动 Token") : $t("手动填写已有 MCP Token")}</button>
       {/if}
-      <p class="credential-note">凭据保存在本地服务端；编辑时留空保留。</p>
-      {#if notice}<p class="notice" role="status"><Check size={14} />{notice}</p>{/if}
-      {#if error}<p class="error" role="alert">{error}</p>{/if}
+      <p class="credential-note">{$t("凭据保存在本地服务端；编辑时留空保留。")}</p>
+      {#if notice}<p class="notice" role="status"><Check size={14} />{$t(notice)}</p>{/if}
+      {#if error}<p class="error" role="alert">{$t(error)}</p>{/if}
     </div>
-    <footer><button class="secondary" type="button" disabled={working} onclick={onclose}>取消</button><button class="secondary" type="button" disabled={working || authorizing || (preset.authKind === "oauth" && !manual && !connector)} onclick={test}>{#if working}<LoaderCircle class="spin" size={14} />{:else}<RefreshCw size={14} />{/if}测试连接</button><button class="primary" type="submit" disabled={working || authorizing || (preset.authKind === "oauth" && !manual && !connector)}>{#if working}<LoaderCircle class="spin" size={14} />{/if}保存连接器</button></footer>
+    <footer><button class="secondary" type="button" disabled={working} onclick={onclose}>{$t("取消")}</button><button class="secondary" type="button" disabled={working || authorizing || (preset.authKind === "oauth" && !manual && !connector)} onclick={test}>{#if working}<LoaderCircle class="spin" size={14} />{:else}<RefreshCw size={14} />{/if}{$t("测试连接")}</button><button class="primary" type="submit" disabled={working || authorizing || (preset.authKind === "oauth" && !manual && !connector)}>{#if working}<LoaderCircle class="spin" size={14} />{/if}{$t("保存连接器")}</button></footer>
   </form>
 </dialog>
 

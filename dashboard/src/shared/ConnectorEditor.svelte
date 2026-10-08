@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n";
   import { onMount } from "svelte";
   import { X, Plug, LoaderCircle } from "lucide-svelte";
   import type { Connector, ConnectorInput } from "../lib/dashboard";
@@ -36,19 +37,19 @@
 
 <dialog bind:this={dialog} oncancel={(event) => { if (saving) event.preventDefault(); else onclose(); }}>
   <form onsubmit={save}>
-    <header><div class="heading-icon"><Plug /></div><div><h2>{connector ? "编辑连接器" : "添加自定义连接器"}</h2><p>把你自己的工具连接到 Spider。</p></div><button type="button" class="icon-button" aria-label="关闭" disabled={saving} onclick={onclose}><X /></button></header>
+    <header><div class="heading-icon"><Plug /></div><div><h2>{connector ? $t("编辑连接器") : $t("添加自定义连接器")}</h2><p>{$t("把你自己的工具连接到 Spider。")}</p></div><button type="button" class="icon-button" aria-label={$t("关闭")} disabled={saving} onclick={onclose}><X /></button></header>
     <div class="fields">
-      <label>名称<input bind:value={name} placeholder="例如：我的 DoorDash" maxlength="80" required /></label>
-      <label>MCP 服务地址<input type="url" bind:value={url} placeholder="http://127.0.0.1:3000/mcp" required /></label>
-      <div class="protocol"><span class="badge">Streamable HTTP</span><span>支持本地与远程 MCP 服务</span></div>
-      <label>描述 <span class="optional">可选</span><input bind:value={description} placeholder="这个连接器可以帮你做什么？" maxlength="1024" /></label>
-      <label>请求头 <span class="optional">可选</span><textarea bind:value={headers} rows="3" placeholder={connector?.has_headers ? "已保存凭据，留空保留。填写新值则替换全部请求头。" : "Authorization: Bearer your-token"}></textarea></label>
-      <p class="credential-note">凭据保存在本地服务端，不会出现在连接器列表中。</p>
-      {#if connector?.has_headers}<label class="check"><input type="checkbox" bind:checked={clearHeaders} />清除已保存的请求头</label>{/if}
-      <label class="check"><input type="checkbox" bind:checked={enabled} />启用这个连接器</label>
-      {#if error}<p class="error" role="alert">{error}</p>{/if}
+      <label>{$t("名称")}<input bind:value={name} placeholder={$t("例如：我的 DoorDash")} maxlength="80" required /></label>
+      <label>{$t("MCP 服务地址")}<input type="url" bind:value={url} placeholder="http://127.0.0.1:3000/mcp" required /></label>
+      <div class="protocol"><span class="badge">Streamable HTTP</span><span>{$t("支持本地与远程 MCP 服务")}</span></div>
+      <label>{$t("描述")} <span class="optional">{$t("可选")}</span><input bind:value={description} placeholder={$t("这个连接器可以帮你做什么？")} maxlength="1024" /></label>
+      <label>{$t("请求头")} <span class="optional">{$t("可选")}</span><textarea bind:value={headers} rows="3" placeholder={connector?.has_headers ? $t("已保存凭据，留空保留。填写新值则替换全部请求头。") : "Authorization: Bearer your-token"}></textarea></label>
+      <p class="credential-note">{$t("凭据保存在本地服务端，不会出现在连接器列表中。")}</p>
+      {#if connector?.has_headers}<label class="check"><input type="checkbox" bind:checked={clearHeaders} />{$t("清除已保存的请求头")}</label>{/if}
+      <label class="check"><input type="checkbox" bind:checked={enabled} />{$t("启用这个连接器")}</label>
+      {#if error}<p class="error" role="alert">{$t(error)}</p>{/if}
     </div>
-    <footer><button class="secondary" type="button" disabled={saving} onclick={onclose}>取消</button><button class="primary" type="submit" disabled={saving}>{#if saving}<LoaderCircle class="spin" />{/if}{saving ? "正在保存…" : "保存连接器"}</button></footer>
+    <footer><button class="secondary" type="button" disabled={saving} onclick={onclose}>{$t("取消")}</button><button class="primary" type="submit" disabled={saving}>{#if saving}<LoaderCircle class="spin" />{/if}{saving ? $t("正在保存…") : $t("保存连接器")}</button></footer>
   </form>
 </dialog>
 

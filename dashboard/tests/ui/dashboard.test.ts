@@ -7,6 +7,9 @@ import type { Connector, Conversation, DashboardPort } from "../../src/lib/dashb
 import { emptyModelConfiguration, selectionValue, type ModelConfiguration, type ModelProvider } from "../../src/lib/models";
 import { cloudModelPresets } from "../../src/lib/model-presets";
 import { builtinConnectorPresets } from "../../src/lib/builtin-connectors";
+import { locale, setLocale, translate } from "../../src/lib/i18n";
+import { english } from "../../src/lib/translations";
+import MemoryMaintenance from "../../src/shared/MemoryMaintenance.svelte";
 
 const connector: Connector = { id: "local", name: "我的 MCP", url: "http://localhost:3000/mcp", description: "自己的工具", enabled: true, has_headers: true, tools: [{ name: "lookup", description: "查找", inputSchema: { type: "object" } }], checked_at: "2026-10-07T00:00:00Z" };
 const fresh: Conversation = { id: "chat", title: "新对话", messages: [], connector_ids: [], status: "idle", version: 1, created_at: "2026-10-07T00:00:00Z", updated_at: "2026-10-07T00:00:00Z" };
@@ -54,7 +57,130 @@ beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
 });
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); locale.set("zh-CN"); vi.restoreAllMocks(); });
+
+describe("interface language", () => {
+  it("switches the settings and navigation immediately, persists the choice and restores it on reload", async () => {
+    const port = fakePort();
+    const app = render(App, { port });
+    await screen.findByText("本地服务已连接");
+    await fireEvent.click(screen.getByRole("button", { name: "应用设置" }));
+    expect((screen.getByRole("combobox", { name: "语言" }) as HTMLSelectElement).value).toBe("zh-CN");
+    await fireEvent.change(screen.getByRole("combobox", { name: "语言" }), { target: { value: "en" } });
+    expect(await screen.findByRole("heading", { name: "App settings" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Models & voice" })).toBeTruthy();
+    expect(screen.getByRole("switch", { name: "Auto read aloud" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeTruthy();
+    expect(localStorage.getItem("spider.language")).toBe("en");
+    expect(document.documentElement.lang).toBe("en");
+    expect(document.title).toBe("Spider · My AI workspace");
+    app.unmount();
+    locale.set("zh-CN");
+    render(App, { port });
+    expect(await screen.findByRole("button", { name: "App settings" })).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "App settings" }));
+    expect((screen.getByRole("combobox", { name: "Language" }) as HTMLSelectElement).value).toBe("en");
+    await fireEvent.change(screen.getByRole("combobox", { name: "Language" }), { target: { value: "zh-CN" } });
+    expect(await screen.findByRole("heading", { name: "应用设置" })).toBeTruthy();
+    expect(document.documentElement.lang).toBe("zh-CN");
+    expect(localStorage.getItem("spider.language")).toBe("zh-CN");
+  });
+
+  it("keeps conversation content, connector names and an unsent draft unchanged when switching", async () => {
+    const conversation = { ...fresh, title: "连接器", messages: [{ role: "assistant" as const, content: "应用设置" }] };
+    localStorage.setItem("spider.last-conversation", fresh.id);
+    const port = fakePort({ conversations: vi.fn().mockResolvedValue([conversation]), conversation: vi.fn().mockResolvedValue(conversation) });
+    render(App, { port });
+    await screen.findByRole("button", { name: "复制回复" });
+    await fireEvent.input(screen.getByRole("textbox", { name: "消息" }), { target: { value: "我的中文草稿 {0}" } });
+    await fireEvent.click(screen.getByRole("button", { name: "应用设置" }));
+    await fireEvent.change(screen.getByRole("combobox", { name: "语言" }), { target: { value: "en" } });
+    await fireEvent.click(screen.getByRole("button", { name: "Chat" }));
+    expect((screen.getByRole("textbox", { name: "Message" }) as HTMLTextAreaElement).value).toBe("我的中文草稿 {0}");
+    expect(screen.getByText("应用设置")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "连接器" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy reply" })).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Select connectors" }));
+    expect(screen.getByText("我的 MCP")).toBeTruthy();
+    expect(port.send).not.toHaveBeenCalled();
+    expect(port.saveConnector).not.toHaveBeenCalled();
+  });
+
+  it("localizes connector presets, model dialogs and memory filters", async () => {
+    localStorage.setItem("spider.language", "en");
+    const port = fakePort();
+    render(App, { port });
+    await screen.findByText("Local service connected");
+    await fireEvent.click(screen.getByRole("button", { name: /^Connectors\s*1$/ }));
+    await fireEvent.click(screen.getByRole("tab", { name: "Built-in connectors" }));
+    expect(screen.getByRole("heading", { name: "Tencent Meeting" })).toBeTruthy();
+    expect(screen.getByText("5 supported connectors, 0 configured")).toBeTruthy();
+    await fireEvent.input(screen.getByRole("textbox", { name: "Search connectors" }), { target: { value: "Baidu" } });
+    expect(screen.getByRole("heading", { name: "Baidu Maps" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Tencent Meeting" })).toBeNull();
+    await fireEvent.click(screen.getByRole("button", { name: "Connect Baidu Maps" }));
+    expect(screen.getByRole("textbox", { name: "Connector name" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save connector" })).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Models & voice" }));
+    expect(screen.getByRole("heading", { name: "Chat model" })).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Add provider" }));
+    expect(screen.getByRole("heading", { name: "Add Chat provider" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Provider name" })).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Close model configuration" }));
+    // Open a list immediately so the fake overview response is not used as chart data.
+    port.memory = vi.fn().mockImplementation(async (method) => method === "stats_counts" ? { raw_events: 0, atoms: 0, entities: 0, episodes: 0, candidates_pending: 0, dirty_pages: 0 } : method.startsWith("stats_") ? { series: [] } : { items: [], total: 0, has_more: false });
+    await fireEvent.click(screen.getByRole("button", { name: "Memory" }));
+    await fireEvent.click(screen.getByRole("tab", { name: "Atomic memories" }));
+    expect(screen.getByRole("textbox", { name: "Search memories" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Minimum importance" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Filter" })).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Add memory" }));
+    expect(screen.getByRole("dialog", { name: "Add memory" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Memory content" })).toBeTruthy();
+    expect(port.saveModelProvider).not.toHaveBeenCalled();
+    expect(port.memory).not.toHaveBeenCalledWith("create_atom", expect.anything());
+  });
+
+  it("falls back to Chinese for an invalid saved language and still switches when storage is unavailable", async () => {
+    localStorage.setItem("spider.language", "unknown");
+    render(App, { port: fakePort() });
+    await screen.findByRole("button", { name: "应用设置" });
+    await fireEvent.click(screen.getByRole("button", { name: "应用设置" }));
+    vi.spyOn(localStorage, "setItem").mockImplementation(() => { throw new Error("Storage unavailable"); });
+    await fireEvent.change(screen.getByRole("combobox", { name: "语言" }), { target: { value: "en" } });
+    expect(await screen.findByRole("heading", { name: "App settings" })).toBeTruthy();
+  });
+
+  it("synchronizes a language preference changed in another tab", async () => {
+    render(App, { port: fakePort() });
+    await screen.findByRole("button", { name: "应用设置" });
+    localStorage.setItem("spider.language", "en");
+    window.dispatchEvent(Object.assign(new Event("storage"), {
+      storageArea: localStorage, key: "spider.language", newValue: "en",
+    }));
+    expect(await screen.findByRole("button", { name: "App settings" })).toBeTruthy();
+    localStorage.removeItem("spider.language");
+    window.dispatchEvent(Object.assign(new Event("storage"), {
+      storageArea: localStorage, key: "spider.language", newValue: null,
+    }));
+    expect(await screen.findByRole("button", { name: "应用设置" })).toBeTruthy();
+  });
+
+  it("updates maintenance summaries and preserves interpolated content across language changes", async () => {
+    render(MemoryMaintenance, { job: { id: "job", kind: "extract", status: "done", result: { results: [{ candidates: 3, promotion: { promoted: 2 }, episodes: { extracted: 1 } }] } } });
+    expect(screen.getByText("处理 1 个会话，提取 3 条候选，确认 2 条原子记忆，记录 1 个情景。")).toBeTruthy();
+    setLocale("en");
+    expect(await screen.findByText("Memory maintenance complete")).toBeTruthy();
+    expect(screen.getByText("Processed 1 conversations, extracted 3 candidates, confirmed 2 atomic memories and recorded 1 episodes.")).toBeTruthy();
+    expect(translate("en", "连接 {0}", { 0: "应用设置 {1}" })).toBe("Connect 应用设置 {1}");
+    expect(translate("en", "constructor")).toBe("constructor");
+    // Every translated sentence keeps the same substitution slots in both languages.
+    for (const [source, translated] of Object.entries(english)) {
+      expect(translated.match(/\{\d+\}/g)?.sort() ?? []).toEqual(source.match(/\{\d+\}/g)?.sort() ?? []);
+    }
+  });
+});
 
 describe("dashboard user journeys", () => {
   it("shows the five copied built-in connector cards and scopes the custom tab", async () => {

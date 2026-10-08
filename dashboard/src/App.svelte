@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, locale, setLocale, initializeLocale, type Locale } from "./lib/i18n";
   import { onMount, tick } from "svelte";
   import { Brain, MessageSquare, Plug, SlidersHorizontal, AudioLines, ChevronDown, Search, Plus, PanelLeftClose, PanelLeftOpen, ArrowUpRight, ShieldCheck, Sparkles, Sun, Moon, RefreshCw, Trash2, X, CircleHelp, Check, LoaderCircle } from "lucide-svelte";
   import { SpiderDashboardPort, errorMessage, type Capabilities, type Connector, type Conversation, type DashboardPort } from "./lib/dashboard";
@@ -218,11 +219,16 @@
     try { localStorage.setItem("spider.theme", dark ? "dark" : "light"); } catch { /* Optional preference. */ }
   }
   onMount(() => {
+    const stopLocaleSync = initializeLocale();
     try { dark = localStorage.getItem("spider.theme") === "dark"; } catch { /* Optional preference. */ }
     document.documentElement.dataset.theme = dark ? "dark" : "light";
     void boot();
     void pollMemory();
-    return () => { disposed = true; recorder?.cancel(); stopAudio(); clearTimeout(pollTimer); clearTimeout(memoryTimer); };
+    return () => { stopLocaleSync(); disposed = true; recorder?.cancel(); stopAudio(); clearTimeout(pollTimer); clearTimeout(memoryTimer); };
+  });
+  $effect(() => {
+    document.documentElement.lang = $locale;
+    document.title = $t("Spider · 我的 AI 工作台");
   });
   $effect(() => {
     active?.messages?.length; busy;
@@ -237,50 +243,50 @@
 
 <div class="shell" class:show-mobile-nav={mobileNav}>
   <aside class="sidebar">
-    <div class="brand"><Brand size={33} /><strong>Spider</strong><span>个人版</span></div>
-    <nav aria-label="主导航">
-      <button class:current={route === "chat"} onclick={() => navigate("chat")}><MessageSquare />对话</button>
-      <div class="nav-group"><span>设置</span><ChevronDown size={12} /></div>
-      <button class:current={route === "connectors"} onclick={() => navigate("connectors")}><Plug />连接器{#if connectors.length}<small>{connectors.length}</small>{/if}</button>
-      <button class:current={route === "models"} onclick={() => navigate("models")}><AudioLines />模型与语音</button>
-      <button class:current={route === "memory"} onclick={() => navigate("memory")}><Brain />记忆管理</button>
-      <button class:current={route === "settings"} onclick={() => navigate("settings")}><SlidersHorizontal />应用设置</button>
+    <div class="brand"><Brand size={33} /><strong>Spider</strong><span>{$t("个人版")}</span></div>
+    <nav aria-label={$t("主导航")}>
+      <button class:current={route === "chat"} onclick={() => navigate("chat")}><MessageSquare />{$t("对话")}</button>
+      <div class="nav-group"><span>{$t("设置")}</span><ChevronDown size={12} /></div>
+      <button class:current={route === "connectors"} onclick={() => navigate("connectors")}><Plug />{$t("连接器")}{#if connectors.length}<small>{connectors.length}</small>{/if}</button>
+      <button class:current={route === "models"} onclick={() => navigate("models")}><AudioLines />{$t("模型与语音")}</button>
+      <button class:current={route === "memory"} onclick={() => navigate("memory")}><Brain />{$t("记忆管理")}</button>
+      <button class:current={route === "settings"} onclick={() => navigate("settings")}><SlidersHorizontal />{$t("应用设置")}</button>
     </nav>
-    <div class="sidebar-bottom"><div class="local-status"><i class:online></i>{loading ? "正在连接…" : online ? "本地服务已连接" : "本地服务未连接"}<button class="icon-button" aria-label="重新连接" disabled={loading || busy} onclick={boot}><RefreshCw /></button></div><button class="profile" onclick={() => navigate("settings")}><span class="profile-icon">T</span><span><strong>Tsinling</strong><small>个人空间</small></span><ChevronDown size={13} /></button></div>
+    <div class="sidebar-bottom"><div class="local-status"><i class:online></i>{loading ? $t("正在连接…") : online ? $t("本地服务已连接") : $t("本地服务未连接")}<button class="icon-button" aria-label={$t("重新连接")} disabled={loading || busy} onclick={boot}><RefreshCw /></button></div><button class="profile" onclick={() => navigate("settings")}><span class="profile-icon">T</span><span><strong>Tsinling</strong><small>{$t("个人空间")}</small></span><ChevronDown size={13} /></button></div>
   </aside>
-  {#if mobileNav}<button class="nav-backdrop" aria-label="关闭导航" onclick={() => mobileNav = false}></button>{/if}
+  {#if mobileNav}<button class="nav-backdrop" aria-label={$t("关闭导航")} onclick={() => mobileNav = false}></button>{/if}
   {#if route === "chat" && (historyOpen || narrowHistory)}
     <aside class="history" class:narrow-open={narrowHistory}>
-      <div class="history-tools"><label><Search size={15} /><input aria-label="搜索会话" placeholder="搜索会话" bind:value={search} /></label><button class="icon-button" aria-label="新建对话" disabled={busy || recording || transcribing} onclick={newConversation}><Plus /></button></div>
-      <div class="agent-card"><div class="agent-avatar"><Brand size={27} /></div><div><strong>Spider · 我的助手</strong><p>你的模型，你的工具。<br />从一句话开始。</p></div></div>
-      <div class="history-label">最近对话 <span>{conversations.length}</span></div>
+      <div class="history-tools"><label><Search size={15} /><input aria-label={$t("搜索会话")} placeholder={$t("搜索会话")} bind:value={search} /></label><button class="icon-button" aria-label={$t("新建对话")} disabled={busy || recording || transcribing} onclick={newConversation}><Plus /></button></div>
+      <div class="agent-card"><div class="agent-avatar"><Brand size={27} /></div><div><strong>{$t("Spider · 我的助手")}</strong><p>{$t("你的模型，你的工具。")}<br />{$t("从一句话开始。")}</p></div></div>
+      <div class="history-label">{$t("最近对话")} <span>{conversations.length}</span></div>
       <div class="history-list">
-        {#each filteredConversations as conversation}<button class:chosen={conversation.id === active?.id} disabled={busy || recording || transcribing} onclick={() => openConversation(conversation.id)}><MessageSquare size={13} /><span>{conversation.title}</span>{#if conversation.pending}<i title="等待确认"></i>{/if}</button>{/each}
-        {#if !filteredConversations.length}<p>{search ? "没有匹配的会话" : "你的对话会出现在这里"}</p>{/if}
+        {#each filteredConversations as conversation}<button class:chosen={conversation.id === active?.id} disabled={busy || recording || transcribing} onclick={() => openConversation(conversation.id)}><MessageSquare size={13} /><span>{conversation.title}</span>{#if conversation.pending}<i title={$t("等待确认")}></i>{/if}</button>{/each}
+        {#if !filteredConversations.length}<p>{search ? $t("没有匹配的会话") : $t("你的对话会出现在这里")}</p>{/if}
       </div>
-      <div class="history-footer"><ShieldCheck size={13} />会话保存在你的本地服务</div>
+      <div class="history-footer"><ShieldCheck size={13} />{$t("会话保存在你的本地服务")}</div>
     </aside>
   {/if}
   <main>
-    <header class="topbar"><div><button class="icon-button mobile-toggle" aria-label="打开导航" onclick={() => mobileNav = !mobileNav}><PanelLeftOpen /></button>{#if route === "chat"}<button class="icon-button history-toggle" aria-label={historyOpen ? "收起会话列表" : "展开会话列表"} onclick={toggleHistory}>{#if historyOpen}<PanelLeftClose />{:else}<PanelLeftOpen />{/if}</button><span>{active?.title || "新对话"}</span>{:else}<span>{route === "connectors" ? "连接器" : route === "models" ? "模型与语音" : route === "memory" ? "记忆管理" : "应用设置"}</span>{/if}</div><div class="topbar-right"><span class="badge local-badge"><span class="tiny-dot"></span>本地工作空间</span><button class="icon-button" aria-label={dark ? "切换浅色模式" : "切换深色模式"} onclick={toggleTheme}>{#if dark}<Sun />{:else}<Moon />{/if}</button>{#if route === "chat" && active}<button class="icon-button" aria-label="删除当前对话" disabled={busy || locked} onclick={() => deleting = !deleting}><Trash2 /></button>{/if}</div></header>
+    <header class="topbar"><div><button class="icon-button mobile-toggle" aria-label={$t("打开导航")} onclick={() => mobileNav = !mobileNav}><PanelLeftOpen /></button>{#if route === "chat"}<button class="icon-button history-toggle" aria-label={historyOpen ? $t("收起会话列表") : $t("展开会话列表")} onclick={toggleHistory}>{#if historyOpen}<PanelLeftClose />{:else}<PanelLeftOpen />{/if}</button><span>{active?.title || $t("新对话")}</span>{:else}<span>{route === "connectors" ? $t("连接器") : route === "models" ? $t("模型与语音") : route === "memory" ? $t("记忆管理") : $t("应用设置")}</span>{/if}</div><div class="topbar-right"><span class="badge local-badge"><span class="tiny-dot"></span>{$t("本地工作空间")}</span><button class="icon-button" aria-label={dark ? $t("切换浅色模式") : $t("切换深色模式")} onclick={toggleTheme}>{#if dark}<Sun />{:else}<Moon />{/if}</button>{#if route === "chat" && active}<button class="icon-button" aria-label={$t("删除当前对话")} disabled={busy || locked} onclick={() => deleting = !deleting}><Trash2 /></button>{/if}</div></header>
     <MemoryMaintenance job={memoryJob} stale={memoryStale} />
-    {#if error}<div class="error-banner" role="alert"><CircleHelp size={15} /><span>{error}</span>{#if !online}<button onclick={boot} disabled={loading}>重新连接</button>{/if}<button class="icon-button" aria-label="关闭错误提示" onclick={() => error = ""}><X /></button></div>{/if}
-    {#if deleting}<div class="delete-banner"><span>删除当前对话和全部聊天记录？</span><button class="secondary" onclick={() => deleting = false}>取消</button><button class="primary" disabled={busy} onclick={deleteConversation}>删除对话</button></div>{/if}
+    {#if error}<div class="error-banner" role="alert"><CircleHelp size={15} /><span>{$t(error)}</span>{#if !online}<button onclick={boot} disabled={loading}>{$t("重新连接")}</button>{/if}<button class="icon-button" aria-label={$t("关闭错误提示")} onclick={() => error = ""}><X /></button></div>{/if}
+    {#if deleting}<div class="delete-banner"><span>{$t("删除当前对话和全部聊天记录？")}</span><button class="secondary" onclick={() => deleting = false}>{$t("取消")}</button><button class="primary" disabled={busy} onclick={deleteConversation}>{$t("删除对话")}</button></div>{/if}
     {#if route === "chat"}
       <div class="chat-layout">
         <div class="transcript" bind:this={transcript}>
           {#if !active?.messages?.length}
-            <div class="welcome"><div class="welcome-mark"><Brand size={56} /></div><div class="welcome-kicker">你的私人 AI 工作空间</div><h1>今天，想做点什么？</h1><p>聊一个想法，连一件工具，<br class="mobile-break" />或直接说给我听。</p><div class="suggestions">{#each prompts as prompt}<button onclick={() => draft = prompt.text}><prompt.icon size={18} /><strong>{prompt.title}</strong><span>{prompt.text}</span><ArrowUpRight size={14} /></button>{/each}</div><button class="welcome-connect" onclick={() => navigate("connectors")}><Plug size={14} />从连接你的第一个工具开始<ArrowUpRight size={13} /></button></div>
+            <div class="welcome"><div class="welcome-mark"><Brand size={56} /></div><div class="welcome-kicker">{$t("你的私人 AI 工作空间")}</div><h1>{$t("今天，想做点什么？")}</h1><p>{$t("聊一个想法，连一件工具，")}<br class="mobile-break" />{$t("或直接说给我听。")}</p><div class="suggestions">{#each prompts as prompt}<button onclick={() => draft = $t(prompt.text)}><prompt.icon size={18} /><strong>{$t(prompt.title)}</strong><span>{$t(prompt.text)}</span><ArrowUpRight size={14} /></button>{/each}</div><button class="welcome-connect" onclick={() => navigate("connectors")}><Plug size={14} />{$t("从连接你的第一个工具开始")}<ArrowUpRight size={13} /></button></div>
           {:else}
             <div class="messages">{#each active.messages as message}<Message {message} speechEnabled={capabilities.speech} onspeak={speak} speaking={!!playingText && playingText === message.content} onerror={report} />{/each}
-              {#if active.pending}<div class="approval"><div class="approval-heading"><ShieldCheck size={20} /><div><h3>等待你的确认</h3><p>Spider 想使用「{active.pending.connector_name}」的工具。</p></div></div><div class="approval-tool"><strong>{active.pending.tool}</strong><span>{active.pending.url}</span></div><pre>{JSON.stringify(active.pending.arguments, null, 2)}</pre><div class="approval-actions"><span>确认后，工具将在连接器服务中执行。</span><button class="secondary" disabled={busy || memoryBlocked} onclick={() => decide(false)}>拒绝</button><button class="primary" disabled={busy || memoryBlocked} onclick={() => decide(true)}><Check size={15} />确认执行</button></div></div>{/if}
+              {#if active.pending}<div class="approval"><div class="approval-heading"><ShieldCheck size={20} /><div><h3>{$t("等待你的确认")}</h3><p>{$t("Spider 想使用「{0}」的工具。", { 0: active.pending.connector_name })}</p></div></div><div class="approval-tool"><strong>{active.pending.tool}</strong><span>{active.pending.url}</span></div><pre>{JSON.stringify(active.pending.arguments, null, 2)}</pre><div class="approval-actions"><span>{$t("确认后，工具将在连接器服务中执行。")}</span><button class="secondary" disabled={busy || memoryBlocked} onclick={() => decide(false)}>{$t("拒绝")}</button><button class="primary" disabled={busy || memoryBlocked} onclick={() => decide(true)}><Check size={15} />{$t("确认执行")}</button></div></div>{/if}
               {#if active.memory_error}<div class="conversation-error" role="status">{active.memory_error}</div>{/if}
               {#if active.error}<div class="conversation-error" role="status">{active.error}</div>{/if}
-              {#if busy || active.status === "running"}<div class="thinking" role="status"><LoaderCircle class="spin" size={15} />Spider 正在处理…</div>{/if}
+              {#if busy || active.status === "running"}<div class="thinking" role="status"><LoaderCircle class="spin" size={15} />{$t("Spider 正在处理…")}</div>{/if}
             </div>
           {/if}
         </div>
-        {#if online && !capabilities.chat}<div class="model-note"><AudioLines size={13} /><span>配置聊天模型后即可开始对话。</span><button onclick={() => navigate("models")}>查看配置</button></div>{/if}
+        {#if online && !capabilities.chat}<div class="model-note"><AudioLines size={13} /><span>{$t("配置聊天模型后即可开始对话。")}</span><button onclick={() => navigate("models")}>{$t("查看配置")}</button></div>{/if}
         <Composer bind:draft bind:selected {connectors} {busy} {locked} {recording} {transcribing} {modelConfiguration} voiceEnabled={capabilities.transcription} speechEnabled={capabilities.speech} bind:autoSpeak onsend={send} onrecord={record} onmanage={() => navigate("connectors")} onmodelmanage={() => navigate("models")} onmodelselect={(selection) => void selectModel("chat", selection).catch(report)} />
       </div>
     {:else if route === "connectors"}
@@ -290,12 +296,44 @@
     {:else if route === "memory"}
       <div class="page-scroll"><Memory {port} {modelConfiguration} job={memoryJob} onjob={(job) => memoryJob = job} onerror={report} /></div>
     {:else}
-      <section class="settings-page"><div class="eyebrow">让空间更像你</div><h1>应用设置</h1><p class="page-description">简单的偏好，舒服的工作方式。</p><div class="preference"><div><h3>外观</h3><p>为当前浏览器选择浅色或深色模式。</p></div><button class="secondary" onclick={toggleTheme}>{#if dark}<Moon size={15} />深色{:else}<Sun size={15} />浅色{/if}</button></div><div class="preference"><div><h3>自动朗读</h3><p>使用配置的 TTS 模型播放新回复。</p></div><button class="switch" class:on={autoSpeak} role="switch" aria-label="自动朗读" aria-checked={autoSpeak} disabled={!capabilities.speech} onclick={() => autoSpeak = !autoSpeak}><i></i></button></div><div class="preference"><div><h3>连接状态</h3><p>{online ? "当前已连接本地 dashboard 服务。" : "尚未连接 dashboard 服务。"}</p></div><button class="secondary" onclick={boot} disabled={loading || busy}><RefreshCw size={14} />刷新</button></div><div class="about"><Brand size={30} /><h3>Spider Dashboard</h3><p>界面与交互参考 Octop，结构与组件沿用 Mantle 的设计方式。</p><span>个人工作空间 · v0.1.0</span></div></section>
+      <section class="settings-page">
+        <div class="eyebrow">{$t("让空间更像你")}</div>
+        <h1>{$t("应用设置")}</h1>
+        <p class="page-description">{$t("简单的偏好，舒服的工作方式。")}</p>
+        <div class="preference">
+          <div><h3>{$t("外观")}</h3><p>{$t("为当前浏览器选择浅色或深色模式。")}</p></div>
+          <button class="secondary" onclick={toggleTheme}>{#if dark}<Moon size={15} />{$t("深色")}{:else}<Sun size={15} />{$t("浅色")}{/if}</button>
+        </div>
+        <div class="preference language-preference">
+          <div>
+            <h3><label for="interface-language">{$t("语言")}</label></h3>
+            <p>{$t("选择界面显示语言，设置会保存在当前浏览器。")}</p>
+          </div>
+          <select id="interface-language" value={$locale} onchange={(event) => setLocale(event.currentTarget.value as Locale)}>
+            <option value="zh-CN" lang="zh-CN">简体中文</option>
+            <option value="en" lang="en">English</option>
+          </select>
+        </div>
+        <div class="preference">
+          <div><h3>{$t("自动朗读")}</h3><p>{$t("使用配置的 TTS 模型播放新回复。")}</p></div>
+          <button class="switch" class:on={autoSpeak} role="switch" aria-label={$t("自动朗读")} aria-checked={autoSpeak} disabled={!capabilities.speech} onclick={() => autoSpeak = !autoSpeak}><i></i></button>
+        </div>
+        <div class="preference">
+          <div><h3>{$t("连接状态")}</h3><p>{online ? $t("当前已连接本地 dashboard 服务。") : $t("尚未连接 dashboard 服务。")}</p></div>
+          <button class="secondary" onclick={boot} disabled={loading || busy}><RefreshCw size={14} />{$t("刷新")}</button>
+        </div>
+        <div class="about">
+          <Brand size={30} /><h3>Spider Dashboard</h3>
+          <p>{$t("界面与交互参考 Octop，结构与组件沿用 Mantle 的设计方式。")}</p>
+          <span>{$t("个人工作空间 · v0.1.0")}</span>
+        </div>
+      </section>
     {/if}
   </main>
 </div>
 
 <style>
+  .language-preference select { min-width: 130px; flex-shrink: 0; font-size: 12px; }
   .shell { display: flex; height: 100dvh; overflow: hidden; }
   .sidebar { display: flex; flex-direction: column; flex-shrink: 0; width: 205px; border-right: 1px solid var(--line); background: var(--chrome-sidebar); }
   .brand { display: flex; align-items: center; gap: 6px; padding: 23px 18px 25px; }

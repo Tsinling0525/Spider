@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n";
   import { onMount } from "svelte";
   import { X, Plus, Trash2, Download, LoaderCircle, AudioLines, Check, FlaskConical } from "lucide-svelte";
   import type { DashboardPort } from "../lib/dashboard";
@@ -21,6 +22,7 @@
   let working = $state("");
   let error = $state("");
   let notice = $state("");
+  let noticeParams = $state<Record<string, string | number>>({});
   const availablePresets = $derived(presetsForGroup(group, group === "chat"));
   function emptyRow(): ModelDefinition { return { id: "", label: "", capability: group === "chat" ? "chat" : "stt", enabled: true }; }
   onMount(() => {
@@ -50,9 +52,10 @@
   }
   async function fetchModels() {
     working = "fetch"; error = ""; notice = "";
-    try { remoteModels = await port.fetchModelIDs(provider?.id ?? null, input(true)); notice = remoteModels.length ? `已读取 ${remoteModels.length} 个模型，可在模型 ID 中选择。` : "供应商返回了空列表，你仍可手动填写模型 ID。"; }
+    noticeParams = {};
+    try { remoteModels = await port.fetchModelIDs(provider?.id ?? null, input(true)); notice = remoteModels.length ? "已读取 {0} 个模型，可在模型 ID 中选择。" : "供应商返回了空列表，你仍可手动填写模型 ID。"; }
     catch (cause) { error = errorMessage(cause); }
-    finally { working = ""; }
+    finally { noticeParams = { 0: remoteModels.length }; working = ""; }
   }
   async function test(index: number) {
     working = `test-${index}`; error = ""; notice = "";
@@ -70,21 +73,21 @@
 
 <dialog bind:this={dialog} oncancel={(event) => { if (working) event.preventDefault(); else onclose(); }}>
   <form onsubmit={save}>
-    <header><div class="heading-icon"><AudioLines size={23} /></div><div><h2>{provider ? "编辑" : "添加"}{group === "chat" ? "对话" : "语音"}供应商</h2><p>{group === "chat" ? "配置聊天模型和工具调用，供对话中选择。" : "配置语音转写和语音合成模型，分别选择输入与输出。"}</p></div><button type="button" class="icon-button" aria-label="关闭模型配置" disabled={!!working} onclick={onclose}><X /></button></header>
+    <header><div class="heading-icon"><AudioLines size={23} /></div><div><h2>{$t("{0}{1}供应商", { 0: provider ? $t("编辑") : $t("添加"), 1: group === "chat" ? $t("对话") : $t("语音") })}</h2><p>{group === "chat" ? $t("配置聊天模型和工具调用，供对话中选择。") : $t("配置语音转写和语音合成模型，分别选择输入与输出。")}</p></div><button type="button" class="icon-button" aria-label={$t("关闭模型配置")} disabled={!!working} onclick={onclose}><X /></button></header>
     <fieldset disabled={!!working}>
-      <div class="two-columns"><label>供应商名称<input bind:value={name} placeholder="例如：我的模型服务" maxlength="80" required /></label><label>接口预设<select value={preset} disabled={!!provider} onchange={(event) => applyPreset(event.currentTarget.value)}><option value="custom">自定义接口</option>{#each availablePresets as item}<option value={item.id}>{item.name}</option>{/each}</select></label></div>
-      {#if group === "chat"}<label>接口协议<select bind:value={protocol}><option value="openai">OpenAI Chat Completions</option><option value="anthropic">Claude Messages</option></select></label>{:else}<p class="voice-protocol">OpenAI 兼容语音接口</p>{/if}
-      <label>API Base URL<input type="url" bind:value={baseURL} placeholder="https://your-provider.example/v1" required /></label><p class="field-hint">填写 API 根地址，包含供应商所需的 /v1。{group === "voice" ? "转写和语音合成会使用各自的音频接口。" : "保存后即可在对话中选择模型。"}</p>
-      <label>API Key <span class="optional">本地服务可留空</span><input type="password" bind:value={apiKey} autocomplete="off" placeholder={provider?.has_api_key ? "已保存 key，留空保留；填写新值则替换" : "填写你的 API key"} /></label>
-      {#if provider?.has_api_key}<label class="check"><input type="checkbox" bind:checked={clearKey} />清除已保存的 API key</label>{/if}
-      <div class="model-heading"><h3>模型列表</h3><button type="button" class="secondary" disabled={!baseURL.trim()} onclick={fetchModels}>{#if working === "fetch"}<LoaderCircle class="spin" size={14} />{:else}<Download size={14} />{/if}读取模型列表</button></div>
+      <div class="two-columns"><label>{$t("供应商名称")}<input bind:value={name} placeholder={$t("例如：我的模型服务")} maxlength="80" required /></label><label>{$t("接口预设")}<select value={preset} disabled={!!provider} onchange={(event) => applyPreset(event.currentTarget.value)}><option value="custom">{$t("自定义接口")}</option>{#each availablePresets as item}<option value={item.id}>{item.name}</option>{/each}</select></label></div>
+      {#if group === "chat"}<label>{$t("接口协议")}<select bind:value={protocol}><option value="openai">OpenAI Chat Completions</option><option value="anthropic">Claude Messages</option></select></label>{:else}<p class="voice-protocol">{$t("OpenAI 兼容语音接口")}</p>{/if}
+      <label>API Base URL<input type="url" bind:value={baseURL} placeholder="https://your-provider.example/v1" required /></label><p class="field-hint">{$t("填写 API 根地址，包含供应商所需的 /v1。{0}", { 0: group === "voice" ? $t("转写和语音合成会使用各自的音频接口。") : $t("保存后即可在对话中选择模型。") })}</p>
+      <label>API Key <span class="optional">{$t("本地服务可留空")}</span><input type="password" bind:value={apiKey} autocomplete="off" placeholder={provider?.has_api_key ? $t("已保存 key，留空保留；填写新值则替换") : $t("填写你的 API key")} /></label>
+      {#if provider?.has_api_key}<label class="check"><input type="checkbox" bind:checked={clearKey} />{$t("清除已保存的 API key")}</label>{/if}
+      <div class="model-heading"><h3>{$t("模型列表")}</h3><button type="button" class="secondary" disabled={!baseURL.trim()} onclick={fetchModels}>{#if working === "fetch"}<LoaderCircle class="spin" size={14} />{:else}<Download size={14} />{/if}{$t("读取模型列表")}</button></div>
       <datalist id="provider-model-ids">{#each remoteModels as id}<option value={id}></option>{/each}</datalist>
-      <div class="model-rows">{#each rows as row,index}<div class="model-row"><div class="row-top"><span>模型 {index + 1}</span><label class="check"><input type="checkbox" bind:checked={row.enabled} />启用</label><button class="icon-button" type="button" aria-label={`移除模型 ${index + 1}`} onclick={() => rows = rows.filter((_,i) => i !== index)}><Trash2 size={14} /></button></div><div class="row-fields"><label>模型 ID<input aria-label={`模型 ID ${index + 1}`} list="provider-model-ids" bind:value={row.id} placeholder="供应商的模型名称" maxlength="256" required /></label><label>能力<select aria-label={`能力 ${index + 1}`} bind:value={row.capability} onchange={() => { if (row.capability !== "tts") row.voice = undefined; }}>{#if group === "chat"}<option value="chat">聊天</option>{:else}<option value="stt">语音输入（STT）</option><option value="tts">语音输出（TTS）</option>{/if}</select></label></div><div class="row-fields"><label>显示名称 <span class="optional">可选</span><input aria-label={`显示名称 ${index + 1}`} bind:value={row.label} placeholder={group === "chat" ? "例如：日常助手" : "例如：语音输入"} maxlength="256" /></label>{#if row.capability === "tts"}<label>音色<input aria-label={`音色 ${index + 1}`} bind:value={row.voice} placeholder="alloy 或供应商音色 ID" maxlength="256" /></label>{:else}<div class="row-test"><button type="button" class="secondary" disabled={!row.id.trim() || !name.trim() || !baseURL.trim()} onclick={() => test(index)}><FlaskConical size={14} />测试{capabilityLabels[row.capability]}模型</button></div>{/if}</div>{#if row.capability === "tts"}<button class="tts-test secondary" type="button" disabled={!row.id.trim() || !name.trim() || !baseURL.trim()} onclick={() => test(index)}><FlaskConical size={14} />测试语音输出模型</button>{/if}</div>{/each}</div>
-      <button type="button" class="add-model" onclick={() => rows = [...rows, emptyRow()]}><Plus size={14} />添加模型</button>
-      <label class="note">备注 <span class="optional">可选</span><input bind:value={note} placeholder="记录这个供应商的用途" maxlength="1024" /></label><label class="check"><input type="checkbox" bind:checked={enabled} />启用这个供应商</label>
+      <div class="model-rows">{#each rows as row,index}<div class="model-row"><div class="row-top"><span>{$t("模型 {0}", { 0: index + 1 })}</span><label class="check"><input type="checkbox" bind:checked={row.enabled} />{$t("启用")}</label><button class="icon-button" type="button" aria-label={$t("移除模型 {0}", { 0: index + 1 })} onclick={() => rows = rows.filter((_,i) => i !== index)}><Trash2 size={14} /></button></div><div class="row-fields"><label>{$t("模型 ID")}<input aria-label={$t("模型 ID {0}", { 0: index + 1 })} list="provider-model-ids" bind:value={row.id} placeholder={$t("供应商的模型名称")} maxlength="256" required /></label><label>{$t("能力")}<select aria-label={$t("能力 {0}", { 0: index + 1 })} bind:value={row.capability} onchange={() => { if (row.capability !== "tts") row.voice = undefined; }}>{#if group === "chat"}<option value="chat">{$t("聊天")}</option>{:else}<option value="stt">{$t("语音输入（STT）")}</option><option value="tts">{$t("语音输出（TTS）")}</option>{/if}</select></label></div><div class="row-fields"><label>{$t("显示名称")} <span class="optional">{$t("可选")}</span><input aria-label={$t("显示名称 {0}", { 0: index + 1 })} bind:value={row.label} placeholder={group === "chat" ? $t("例如：日常助手") : $t("例如：语音输入")} maxlength="256" /></label>{#if row.capability === "tts"}<label>{$t("音色")}<input aria-label={$t("音色 {0}", { 0: index + 1 })} bind:value={row.voice} placeholder={$t("alloy 或供应商音色 ID")} maxlength="256" /></label>{:else}<div class="row-test"><button type="button" class="secondary" disabled={!row.id.trim() || !name.trim() || !baseURL.trim()} onclick={() => test(index)}><FlaskConical size={14} />{$t("测试{0}模型", { 0: $t(capabilityLabels[row.capability]) })}</button></div>{/if}</div>{#if row.capability === "tts"}<button class="tts-test secondary" type="button" disabled={!row.id.trim() || !name.trim() || !baseURL.trim()} onclick={() => test(index)}><FlaskConical size={14} />{$t("测试语音输出模型")}</button>{/if}</div>{/each}</div>
+      <button type="button" class="add-model" onclick={() => rows = [...rows, emptyRow()]}><Plus size={14} />{$t("添加模型")}</button>
+      <label class="note">{$t("备注")} <span class="optional">{$t("可选")}</span><input bind:value={note} placeholder={$t("记录这个供应商的用途")} maxlength="1024" /></label><label class="check"><input type="checkbox" bind:checked={enabled} />{$t("启用这个供应商")}</label>
     </fieldset>
-    <div class="feedback">{#if error}<p class="error" role="alert">{error}</p>{/if}{#if notice}<p class="notice" role="status"><Check size={14} />{notice}</p>{/if}</div>
-    <footer><span>测试会向供应商发送少量测试内容。凭据仅保存在服务端。</span><button class="secondary" type="button" disabled={!!working} onclick={onclose}>取消</button><button class="primary" type="submit" disabled={!!working || !rows.length}>{#if working}<LoaderCircle class="spin" size={15} />{/if}保存配置</button></footer>
+    <div class="feedback">{#if error}<p class="error" role="alert">{$t(error)}</p>{/if}{#if notice}<p class="notice" role="status"><Check size={14} />{$t(notice, noticeParams)}</p>{/if}</div>
+    <footer><span>{$t("测试会向供应商发送少量测试内容。凭据仅保存在服务端。")}</span><button class="secondary" type="button" disabled={!!working} onclick={onclose}>{$t("取消")}</button><button class="primary" type="submit" disabled={!!working || !rows.length}>{#if working}<LoaderCircle class="spin" size={15} />{/if}{$t("保存配置")}</button></footer>
   </form>
 </dialog>
 

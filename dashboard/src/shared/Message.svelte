@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n";
   import { Copy, Volume2, Check, Wrench, ChevronDown } from "lucide-svelte";
   import type { Message } from "../lib/dashboard";
   import { renderMarkdown } from "../lib/markdown";
@@ -16,23 +17,23 @@
 
 {#if message.role === "tool"}
   <div class="tool-result">
-    <button onclick={() => expanded = !expanded} aria-expanded={expanded}><Wrench size={14} />工具返回结果<ChevronDown size={14} /></button>
+    <button onclick={() => expanded = !expanded} aria-expanded={expanded}><Wrench size={14} />{$t("工具返回结果")}<ChevronDown size={14} /></button>
     {#if expanded}<pre>{message.content}</pre>{/if}
   </div>
 {:else if message.role !== "system" && (message.content || message.tool_calls?.length)}
   <article class:user={message.role === "user"}>
     {#if message.role === "assistant"}<div class="avatar"><Brand size={24} /></div>{/if}
     <div class="body">
-      {#if message.role === "assistant"}<div class="author">Spider <span>助手</span></div>{/if}
+      {#if message.role === "assistant"}<div class="author">Spider <span>{$t("助手")}</span></div>{/if}
       {#if message.content}
         {#if message.role === "user"}<div class="user-text">{message.content}</div>
         {:else}<div class="markdown">{@html renderMarkdown(message.content)}</div>{/if}
       {/if}
-      {#if message.tool_calls?.length}<div class="call"><Wrench size={14} />请求调用连接器工具</div>{/if}
+      {#if message.tool_calls?.length}<div class="call"><Wrench size={14} />{$t("请求调用连接器工具")}</div>{/if}
       {#if message.role === "assistant" && message.content}
         <div class="actions">
-          <button class="icon-button" aria-label={copied ? "已复制" : "复制回复"} onclick={copy}>{#if copied}<Check />{:else}<Copy />{/if}</button>
-          <button class="icon-button" class:playing={speaking} aria-label={speaking ? "停止播放" : "播放语音回复"} disabled={!speechEnabled} onclick={() => onspeak(message.content)}><Volume2 /></button>
+          <button class="icon-button" aria-label={copied ? $t("已复制") : $t("复制回复")} onclick={copy}>{#if copied}<Check />{:else}<Copy />{/if}</button>
+          <button class="icon-button" class:playing={speaking} aria-label={speaking ? $t("停止播放") : $t("播放语音回复")} disabled={!speechEnabled} onclick={() => onspeak(message.content)}><Volume2 /></button>
         </div>
       {/if}
     </div>
