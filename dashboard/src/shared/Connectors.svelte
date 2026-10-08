@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n";
   import { Plug, Plus, Search, ArrowUpRight, Ellipsis, RefreshCw, Pencil, Trash2, Wrench, Check, Power, LoaderCircle, ChevronDown, Blocks, Link } from "lucide-svelte";
   import type { Connector, ConnectorInput, DashboardPort } from "../lib/dashboard";
   import { accentForServerName } from "../lib/connectors";
@@ -17,9 +18,10 @@
   let menu = $state<string | null>(null);
   let expanded = $state<string | null>(null);
   let notice = $state("");
+  let noticeParams = $state<Record<string, string | number>>({});
   let confirmingDelete = $state<string | null>(null);
   const filtered = $derived(connectors.filter((item) => (tab === "custom" ? !item.kind : item.enabled) && `${item.name} ${item.description}`.toLowerCase().includes(search.toLowerCase())));
-  const presets = $derived(builtinConnectorPresets.filter((item) => `${item.name} ${item.description}`.toLowerCase().includes(search.toLowerCase())));
+  const presets = $derived(builtinConnectorPresets.filter((item) => `${$t(item.name)} ${$t(item.description)} ${item.name} ${item.description}`.toLowerCase().includes(search.toLowerCase())));
   const configuredBuiltins = $derived(connectors.filter((item) => item.kind).length);
   const tabs = [{ id: "enabled", label: "已启用连接器", icon: Link }, { id: "builtin", label: "内置连接器", icon: Blocks }, { id: "custom", label: "自定义连接器", icon: Wrench }] as const;
   function changeTab(next: typeof tab) { tab = next; search = ""; notice = ""; menu = null; expanded = null; }
@@ -38,7 +40,7 @@
   async function authorized(id: string) { await onrefresh(); changeTab("enabled"); await probe(id); }
   async function probe(id: string) {
     probing = id; notice = "";
-    try { const tested = await port.probeConnector(id); await onrefresh(); notice = `${tested.name} 已连接，发现 ${tested.tools.length} 个工具。`; }
+    try { const tested = await port.probeConnector(id); await onrefresh(); notice = "{0} 已连接，发现 {1} 个工具。"; noticeParams = { 0: tested.name, 1: tested.tools.length }; }
     catch (error) { onerror(error); }
     finally { probing = null; }
   }
@@ -55,49 +57,49 @@
 </script>
 
 <section class="connectors-page">
-  <div class="eyebrow">你的工具，你的工作方式</div>
-  <div class="page-heading"><div><h1>连接器</h1><p>账户级连接文档、邮箱与出行服务；对话时按需勾选。</p></div><button class="primary" onclick={() => { editing = null; builtinEditing = null; editor = true; }}><Plus />添加连接器</button></div>
-  <div class="connector-tabs" role="tablist" aria-label="连接器类别">{#each tabs as item, index}<button role="tab" id={`connectors-tab-${item.id}`} aria-selected={tab === item.id} aria-controls={`connectors-panel-${item.id}`} tabindex={tab === item.id ? 0 : -1} class:active={tab === item.id} onclick={() => changeTab(item.id)} onkeydown={(event) => tabKey(event, index)}><item.icon size={15} />{item.label}</button>{/each}</div>
-  <div class="list-heading"><span>{tab === "builtin" ? `当前支持 ${builtinConnectorPresets.length} 个连接器，已配置 ${configuredBuiltins} 个` : tab === "custom" ? `自定义连接器 ${filtered.length} 个` : `已启用 ${filtered.length} 个连接器`} </span><div class="list-actions"><label class="search"><Search size={15} /><input aria-label="搜索连接器" bind:value={search} placeholder="搜索连接器" /></label><button class="secondary refresh" onclick={() => void onrefresh().catch(onerror)}><RefreshCw size={14} />刷新</button></div></div>
-  {#if notice}<div class="notice" role="status"><Check size={15} />{notice}</div>{/if}
+  <div class="eyebrow">{$t("你的工具，你的工作方式")}</div>
+  <div class="page-heading"><div><h1>{$t("连接器")}</h1><p>{$t("账户级连接文档、邮箱与出行服务；对话时按需勾选。")}</p></div><button class="primary" onclick={() => { editing = null; builtinEditing = null; editor = true; }}><Plus />{$t("添加连接器")}</button></div>
+  <div class="connector-tabs" role="tablist" aria-label={$t("连接器类别")}>{#each tabs as item, index}<button role="tab" id={`connectors-tab-${item.id}`} aria-selected={tab === item.id} aria-controls={`connectors-panel-${item.id}`} tabindex={tab === item.id ? 0 : -1} class:active={tab === item.id} onclick={() => changeTab(item.id)} onkeydown={(event) => tabKey(event, index)}><item.icon size={15} />{$t(item.label)}</button>{/each}</div>
+  <div class="list-heading"><span>{tab === "builtin" ? $t("当前支持 {0} 个连接器，已配置 {1} 个", { 0: builtinConnectorPresets.length, 1: configuredBuiltins }) : tab === "custom" ? $t("自定义连接器 {0} 个", { 0: filtered.length }) : $t("已启用 {0} 个连接器", { 0: filtered.length })} </span><div class="list-actions"><label class="search"><Search size={15} /><input aria-label={$t("搜索连接器")} bind:value={search} placeholder={$t("搜索连接器")} /></label><button class="secondary refresh" onclick={() => void onrefresh().catch(onerror)}><RefreshCw size={14} />{$t("刷新")}</button></div></div>
+  {#if notice}<div class="notice" role="status"><Check size={15} />{$t(notice, noticeParams)}</div>{/if}
   <div role="tabpanel" id={`connectors-panel-${tab}`} aria-labelledby={`connectors-tab-${tab}`}>
   {#if tab === "builtin"}
     <div class="builtin-cards">
       {#each presets as preset}
-        <button class="builtin-card" class:monochrome={preset.kind === "notion"} style={`--connector-accent: ${preset.color}`} aria-label={`连接 ${preset.name}`} onclick={() => { editing = null; editor = false; builtinEditing = preset; }}>
-          <div class="builtin-top"><img src={preset.logo} alt="" /><div><h3>{preset.name}</h3><span class="category">{preset.category}</span></div></div>
-          <p>{preset.description}</p><div class="builtin-bottom"><span>点击连接</span>{#if connectors.some((item) => item.kind === preset.kind)}<small><Check size={12} />已配置</small>{/if}</div>
+        <button class="builtin-card" class:monochrome={preset.kind === "notion"} style={`--connector-accent: ${preset.color}`} aria-label={$t("连接 {0}", { 0: $t(preset.name) })} onclick={() => { editing = null; editor = false; builtinEditing = preset; }}>
+          <div class="builtin-top"><img src={preset.logo} alt="" /><div><h3>{$t(preset.name)}</h3><span class="category">{$t(preset.category)}</span></div></div>
+          <p>{$t(preset.description)}</p><div class="builtin-bottom"><span>{$t("点击连接")}</span>{#if connectors.some((item) => item.kind === preset.kind)}<small><Check size={12} />{$t("已配置")}</small>{/if}</div>
         </button>
       {/each}
     </div>
-    {#if !presets.length}<div class="empty-search">没有找到匹配的内置连接器。</div>{/if}
+    {#if !presets.length}<div class="empty-search">{$t("没有找到匹配的内置连接器。")}</div>{/if}
   {:else}
   <div class="cards">
     {#each filtered as connector}
       <article>
         <div class="card-top"><div class="connector-icon" style={`--connector-accent: ${builtinPreset(connector.kind)?.color || accentForServerName(connector.name)}`}>{#if builtinPreset(connector.kind)}<img src={builtinPreset(connector.kind)!.logo} alt="" />{:else}<Plug size={25} />{/if}</div>
-          <div class="card-name"><h3>{connector.name}</h3><span class="badge">{builtinPreset(connector.kind)?.name || "自定义 MCP"}</span></div>
-          <div class="menu-wrap"><button class="icon-button" aria-label={`${connector.name} 操作`} aria-expanded={menu === connector.id} onclick={() => menu = menu === connector.id ? null : connector.id}><Ellipsis /></button>
-            {#if menu === connector.id}<div class="menu"><button onclick={() => edit(connector)}><Pencil size={14} />编辑配置</button><button onclick={() => toggle(connector)}><Power size={14} />{connector.enabled ? "停用" : "启用"}</button><button class="error" onclick={() => { confirmingDelete = connector.id; menu = null; }}><Trash2 size={14} />删除连接器</button></div>{/if}
+          <div class="card-name"><h3>{connector.name}</h3><span class="badge">{$t(builtinPreset(connector.kind)?.name || "自定义 MCP")}</span></div>
+          <div class="menu-wrap"><button class="icon-button" aria-label={$t("{0} 操作", { 0: connector.name })} aria-expanded={menu === connector.id} onclick={() => menu = menu === connector.id ? null : connector.id}><Ellipsis /></button>
+            {#if menu === connector.id}<div class="menu"><button onclick={() => edit(connector)}><Pencil size={14} />{$t("编辑配置")}</button><button onclick={() => toggle(connector)}><Power size={14} />{connector.enabled ? $t("停用") : $t("启用")}</button><button class="error" onclick={() => { confirmingDelete = connector.id; menu = null; }}><Trash2 size={14} />{$t("删除连接器")}</button></div>{/if}
           </div>
         </div>
-        <p class="description">{connector.description || "连接你自己的 MCP 工具服务。"}</p>
+        <p class="description">{connector.description || $t("连接你自己的 MCP 工具服务。")}</p>
         <div class="endpoint">{connector.url}</div>
-        <div class="card-bottom"><span class="status" class:connected={connector.enabled && !!connector.checked_at}><i></i>{!connector.enabled ? "已停用" : connector.checked_at ? "已测试" : "待测试"}</span><button class="test" disabled={probing !== null} onclick={() => probe(connector.id)}>{#if probing === connector.id}<LoaderCircle class="spin" size={13} />{:else}<RefreshCw size={13} />{/if}{probing === connector.id ? "测试中…" : "测试连接"}</button></div>
+        <div class="card-bottom"><span class="status" class:connected={connector.enabled && !!connector.checked_at}><i></i>{!connector.enabled ? $t("已停用") : connector.checked_at ? $t("已测试") : $t("待测试")}</span><button class="test" disabled={probing !== null} onclick={() => probe(connector.id)}>{#if probing === connector.id}<LoaderCircle class="spin" size={13} />{:else}<RefreshCw size={13} />{/if}{probing === connector.id ? $t("测试中…") : $t("测试连接")}</button></div>
         {#if connector.checked_at}
-          <div class="tool-row"><button onclick={() => expanded = expanded === connector.id ? null : connector.id} aria-expanded={expanded === connector.id}><Wrench size={13} />{connector.tools.length} 个工具<ChevronDown size={13} /></button><button class="use" disabled={!connector.enabled} onclick={() => onchat(connector.id)}>在对话中使用<ArrowUpRight size={13} /></button></div>
+          <div class="tool-row"><button onclick={() => expanded = expanded === connector.id ? null : connector.id} aria-expanded={expanded === connector.id}><Wrench size={13} />{$t("{0} 个工具", { 0: connector.tools.length })}<ChevronDown size={13} /></button><button class="use" disabled={!connector.enabled} onclick={() => onchat(connector.id)}>{$t("在对话中使用")}<ArrowUpRight size={13} /></button></div>
           {#if expanded === connector.id}<div class="tool-list">{#each connector.tools as tool}<div><strong>{tool.name}</strong><p>{tool.description}</p></div>{/each}</div>{/if}
         {/if}
-        {#if confirmingDelete === connector.id}<div class="delete-confirm"><p>删除「{connector.name}」的配置？</p><div><button class="secondary" onclick={() => confirmingDelete = null}>取消</button><button class="primary" onclick={() => remove(connector.id)}>删除</button></div></div>{/if}
+        {#if confirmingDelete === connector.id}<div class="delete-confirm"><p>{$t("删除「{0}」的配置？", { 0: connector.name })}</p><div><button class="secondary" onclick={() => confirmingDelete = null}>{$t("取消")}</button><button class="primary" onclick={() => remove(connector.id)}>{$t("删除")}</button></div></div>{/if}
       </article>
     {/each}
-    {#if !search}<button class="add-card" onclick={() => { if (tab === "enabled") changeTab("builtin"); else { editing = null; builtinEditing = null; editor = true; } }}><span class="add-icon"><Plus size={24} /></span><strong>{tab === "enabled" ? "连接更多服务" : "连接你自己的工具"}</strong><span>{tab === "enabled" ? "浏览内置连接器，添加你的常用服务" : "添加一个 MCP 服务，开始新的可能"}</span></button>{/if}
+    {#if !search}<button class="add-card" onclick={() => { if (tab === "enabled") changeTab("builtin"); else { editing = null; builtinEditing = null; editor = true; } }}><span class="add-icon"><Plus size={24} /></span><strong>{tab === "enabled" ? $t("连接更多服务") : $t("连接你自己的工具")}</strong><span>{tab === "enabled" ? $t("浏览内置连接器，添加你的常用服务") : $t("添加一个 MCP 服务，开始新的可能")}</span></button>{/if}
   </div>
-  {#if search && !filtered.length}<div class="empty-search">没有找到匹配的连接器。</div>{/if}
-  {#if !search && tab === "enabled" && connectors.some((item) => !item.enabled)}<div class="disabled-connectors"><h3>已停用连接器</h3>{#each connectors.filter((item) => !item.enabled) as item}<div><span>{item.name}</span><button class="secondary" onclick={() => edit(item)}>编辑配置</button><button class="secondary" onclick={() => toggle(item)}>启用</button></div>{/each}</div>{/if}
+  {#if search && !filtered.length}<div class="empty-search">{$t("没有找到匹配的连接器。")}</div>{/if}
+  {#if !search && tab === "enabled" && connectors.some((item) => !item.enabled)}<div class="disabled-connectors"><h3>{$t("已停用连接器")}</h3>{#each connectors.filter((item) => !item.enabled) as item}<div><span>{item.name}</span><button class="secondary" onclick={() => edit(item)}>{$t("编辑配置")}</button><button class="secondary" onclick={() => toggle(item)}>{$t("启用")}</button></div>{/each}</div>{/if}
   {/if}
   </div>
-  <div class="footnote"><Plug size={13} />支持 Streamable HTTP；服务端自动处理 JSON 和 SSE 响应。</div>
+  <div class="footnote"><Plug size={13} />{$t("支持 Streamable HTTP；服务端自动处理 JSON 和 SSE 响应。")}</div>
 </section>
 {#if editor}<ConnectorEditor connector={editing} onsave={save} onclose={() => editor = false} />{/if}
 {#if builtinEditing}<BuiltinConnectorEditor preset={builtinEditing} connector={editing} {port} onsave={saveBuiltin} onauthorized={authorized} onclose={() => builtinEditing = null} />{/if}
