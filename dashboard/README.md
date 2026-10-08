@@ -43,7 +43,7 @@ cp .env.dashboard.example .env.dashboard
 make dev-dashboard
 ```
 
-打开 <http://127.0.0.1:5174>。`make dev-dashboard`（或在 dashboard 中运行 `npm run dev`）会读取根目录的 `.env.dashboard`，先启动 Go 服务，再启动 Vite；保持该命令运行，关闭终端或 Ctrl+C 会停止本次启动的服务。如果已有 dashboardd 则复用，不关闭外部启动的进程。服务端默认是 `127.0.0.1:8083`，独立于 `contactd` / `agentd` / `lifed`。没有配置模型时仍能管理连接器、浏览历史和查看设置，聊天与语音不会伪造回复。
+打开 <http://127.0.0.1:5174>。`make dev-dashboard`（或在 dashboard 中运行 `npm run dev`）会读取根目录的 `.env.dashboard`，先启动 Go 服务，再启动 Vite；保持该命令运行，关闭终端或 Ctrl+C 会停止本次启动的服务。如果已有 dashboardd 则复用，不关闭外部启动的进程。服务端默认是 `127.0.0.1:8083`，作为统一助手服务。没有配置模型时仍能管理连接器、浏览历史和查看设置，聊天与语音不会伪造回复。
 
 需要分别启动时，加载 `.env.dashboard` 后运行 `make run-dashboardd`，另一个终端运行 `npm --prefix dashboard run dev:frontend`。独立前端可通过 `dashboard/.env` 设置 `SPIDER_DASHBOARD_BASE_URL` 和相同的 `SPIDER_API_KEY`。
 

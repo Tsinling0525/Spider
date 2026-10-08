@@ -1,7 +1,7 @@
 # Mantle ESP32-S3 device service
 
-`cmd/spider-device` is an opt-in Spider service, separate from the existing mail
-and lifed listeners. Default address is `127.0.0.1:8083`. It implements a compact
+`cmd/spider-device` is an opt-in Spider service, separate from dashboardd. Do not run both
+on their default port at the same time. Default address is `127.0.0.1:8083`. It implements a compact
 Mantle surface node endpoint and a half-duplex voice extension. It does not
 execute model-proposed actions or automatically approve Dify human tasks.
 

@@ -1,3 +1,5 @@
+> 历史参考：相关独立服务已移除。本文中的启动命令、环境变量和旧 API 不适用于当前部署；当前助手使用 dashboardd 与连接器，见 [主文档](../README.md)。
+
 # 自主邮件 Agent
 
 `agentd` 把模型的自主工具选择放在 Go Runtime 中。模型、邮件能力、日历能力和发送审批各有独立接口；原生执行路径不调用 Dify。Dify 仍服务于原有 `/contact/drafts` 和 `/v1/human-tasks/*` 固定流程接口，未配置 Dify 时不影响 Agent。
