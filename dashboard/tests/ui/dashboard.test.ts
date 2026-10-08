@@ -13,6 +13,7 @@ import MemoryMaintenance from "../../src/shared/MemoryMaintenance.svelte";
 
 const connector: Connector = { id: "local", name: "我的 MCP", url: "http://localhost:3000/mcp", description: "自己的工具", enabled: true, has_headers: true, tools: [{ name: "lookup", description: "查找", inputSchema: { type: "object" } }], checked_at: "2026-10-07T00:00:00Z" };
 const fresh: Conversation = { id: "chat", title: "新对话", messages: [], connector_ids: [], status: "idle", version: 1, created_at: "2026-10-07T00:00:00Z", updated_at: "2026-10-07T00:00:00Z" };
+const remote: Conversation = { ...fresh, id: "xiaozhi-chat", title: "帮我找牛肉面", source: { kind: "xiaozhi", id: "desk", name: "书桌小智" }, version: 3, messages: [{ role: "user", content: "帮我找牛肉面" }, { role: "assistant", content: "我来查询菜单。" }] };
 
 function fakePort(overrides: Partial<DashboardPort> = {}): DashboardPort {
   return {
@@ -183,6 +184,82 @@ describe("interface language", () => {
 });
 
 describe("dashboard user journeys", () => {
+  it("shows voice confirmation details and synchronizes the result without submitting another decision", async () => {
+    let current: Conversation = { ...remote, version: 5, status: "waiting_approval", pending: { id: "approval", connector_id: "local", connector_name: "DoorDash", url: connector.url, tool: "doordash_add_to_cart", arguments: { itemName: "牛肉面" }, voice: { id: "voice-nonce", summary: "向购物车加入一份牛肉面，不会付款。", phrase: "确认加入购物车", expires_at: "2026-10-07T20:00:00Z", version: 5 } } };
+    localStorage.setItem("spider.last-conversation", remote.id);
+    const port = fakePort({ conversations: vi.fn().mockImplementation(async () => [current]), conversation: vi.fn().mockImplementation(async () => current) });
+    render(App, { port });
+    expect(await screen.findByText("向购物车加入一份牛肉面，不会付款。")).toBeTruthy();
+    expect(screen.getByText("也可在小智上说「确认加入购物车」或「取消」。")).toBeTruthy();
+    current = { ...remote, version: 8, messages: [{ role: "user", content: "确认加入购物车" }, { role: "assistant", content: "已加入购物车，尚未下单。" }] };
+    expect(await screen.findByText("已加入购物车，尚未下单。", {}, { timeout: 3500 })).toBeTruthy();
+    expect(screen.queryByText("等待你的确认")).toBeNull();
+    expect(port.decide).not.toHaveBeenCalled();
+    expect(port.send).not.toHaveBeenCalled();
+  });
+  it("discovers a Xiaozhi request and opens it from an empty idle page", async () => {
+    let list: Conversation[] = [];
+    const port = fakePort({ conversations: vi.fn().mockImplementation(async () => list), conversation: vi.fn().mockResolvedValue(remote) });
+    render(App, { port });
+    await waitFor(() => expect(screen.getByText("本地服务已连接")).toBeTruthy());
+    list = [remote];
+    expect(await screen.findByText("我来查询菜单。", {}, { timeout: 3500 })).toBeTruthy();
+    expect(screen.getByText("来自 书桌小智 · 设备和网页共用此对话")).toBeTruthy();
+    expect(port.send).not.toHaveBeenCalled();
+    expect(port.decide).not.toHaveBeenCalled();
+  });
+
+  it("notifies about Xiaozhi approvals without replacing another conversation or its draft", async () => {
+    let list: Conversation[] = [fresh];
+    const pending: Conversation = { ...remote, status: "waiting_approval", pending: { id: "food-approval", connector_id: "local", connector_name: "我的 MCP", url: connector.url, tool: "lookup", arguments: { query: "noodles" } } };
+    localStorage.setItem("spider.last-conversation", fresh.id);
+    const port = fakePort({ conversations: vi.fn().mockImplementation(async () => list), conversation: vi.fn().mockImplementation(async (id) => id === fresh.id ? fresh : pending) });
+    render(App, { port });
+    await waitFor(() => expect(screen.getByText("本地服务已连接")).toBeTruthy());
+    await fireEvent.input(screen.getByRole("textbox", { name: "消息" }), { target: { value: "我正在编辑的内容" } });
+    list = [pending, fresh];
+    expect(await screen.findByText("小智的请求需要你确认 · 1 个会话", {}, { timeout: 3500 })).toBeTruthy();
+    expect((screen.getByRole("textbox", { name: "消息" }) as HTMLTextAreaElement).value).toBe("我正在编辑的内容");
+    expect(screen.queryByText("等待你的确认")).toBeNull();
+    expect(port.decide).not.toHaveBeenCalled();
+  });
+
+  it("updates an already open idle Xiaozhi conversation when a new remote turn needs approval", async () => {
+    let current: Conversation = remote;
+    localStorage.setItem("spider.last-conversation", remote.id);
+    const port = fakePort({ conversations: vi.fn().mockImplementation(async () => [current]), conversation: vi.fn().mockImplementation(async () => current) });
+    render(App, { port });
+    expect(await screen.findByText("我来查询菜单。")).toBeTruthy();
+    current = { ...remote, version: 5, status: "waiting_approval", pending: { id: "food-approval", connector_id: "local", connector_name: "我的 MCP", url: connector.url, tool: "lookup", arguments: { query: "noodles" } } };
+    expect(await screen.findByText("等待你的确认", {}, { timeout: 3500 })).toBeTruthy();
+    expect(port.decide).not.toHaveBeenCalled();
+    await fireEvent.click(screen.getByRole("button", { name: "拒绝" }));
+    await waitFor(() => expect(port.decide).toHaveBeenCalledExactlyOnceWith(remote.id, 5, "food-approval", false));
+  });
+
+  it("keeps an unsent new-message draft when a Xiaozhi request arrives", async () => {
+    let list: Conversation[] = [];
+    const port = fakePort({ conversations: vi.fn().mockImplementation(async () => list), conversation: vi.fn().mockResolvedValue(remote) });
+    render(App, { port });
+    await waitFor(() => expect(screen.getByText("本地服务已连接")).toBeTruthy());
+    await fireEvent.input(screen.getByRole("textbox", { name: "消息" }), { target: { value: "未发送的新对话草稿" } });
+    list = [remote];
+    expect(await screen.findByText("小智有新消息 · 1 个会话", {}, { timeout: 3500 })).toBeTruthy();
+    expect((screen.getByRole("textbox", { name: "消息" }) as HTMLTextAreaElement).value).toBe("未发送的新对话草稿");
+    expect(port.conversation).not.toHaveBeenCalled();
+  });
+
+  it("recovers automatic conversation sync after a transient disconnect", async () => {
+    const list = vi.fn().mockResolvedValueOnce([]).mockRejectedValueOnce(new Error("offline")).mockResolvedValue([remote]);
+    const port = fakePort({ conversations: list, conversation: vi.fn().mockResolvedValue(remote) });
+    render(App, { port });
+    await waitFor(() => expect(screen.getByText("本地服务已连接")).toBeTruthy());
+    expect(await screen.findByText("会话同步暂时中断，正在重连…", {}, { timeout: 3500 })).toBeTruthy();
+    expect(await screen.findByText("我来查询菜单。", {}, { timeout: 3500 })).toBeTruthy();
+    expect(screen.queryByText("会话同步暂时中断，正在重连…")).toBeNull();
+    expect(port.decide).not.toHaveBeenCalled();
+  }, 7000);
+
   it("shows the five copied built-in connector cards and scopes the custom tab", async () => {
     const port = fakePort(); render(App, { port });
     await waitFor(() => expect(screen.getByText("本地服务已连接")).toBeTruthy());

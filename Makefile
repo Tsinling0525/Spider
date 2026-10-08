@@ -1,13 +1,13 @@
-.PHONY: build build-llmd test run run-llmd build-dashboardd run-dashboardd build-dashboard dev-dashboard
+.PHONY: build build-llmd build-agentd build-dashboardd build-dashboard build-xiaozhi-bridge run-xiaozhi-bridge test run run-llmd run-agentd run-dashboardd dev-dashboard
 
 build:
-	go build -o spider-mail ./cmd/spider-mail
+	go build -o contactd ./cmd/contactd
 
 test:
 	go test ./...
 
 run:
-	go run ./cmd/spider-mail
+	go run ./cmd/contactd
 
 build-llmd:
 	go build -o bin/llmd ./cmd/llmd
@@ -15,11 +15,23 @@ build-llmd:
 run-llmd:
 	go run ./cmd/llmd
 
+build-agentd:
+	go build -o bin/agentd ./cmd/agentd
+
+run-agentd:
+	go run ./cmd/agentd
+
 build-dashboardd:
 	go build -o bin/dashboardd ./cmd/dashboardd
 
-run-dashboardd:
-	go run ./cmd/dashboardd
+build-xiaozhi-bridge:
+	go build -o bin/xiaozhi-bridge ./cmd/xiaozhi-bridge
+
+run-xiaozhi-bridge: build-xiaozhi-bridge
+	sh scripts/run-xiaozhi-bridge.sh
+
+run-dashboardd: build-dashboardd
+	sh scripts/run-dashboardd.sh
 
 build-dashboard:
 	npm --prefix dashboard run build

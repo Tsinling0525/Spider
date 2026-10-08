@@ -52,14 +52,14 @@ func TestProtectedEndpointRequiresBearerToken(t *testing.T) {
 	flow := mailoauth.NewFlow(&oauth2.Config{}, tokenStore)
 	handler := NewServer(maildomain.NewService(emptyProvider{}, emptyDrafter{}, auditStore), flow, "secret", slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-	request := httptest.NewRequest(http.MethodGet, "/v1/email/threads", nil)
+	request := httptest.NewRequest(http.MethodGet, "/contact/threads", nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("got status %d, want %d", response.Code, http.StatusUnauthorized)
 	}
 
-	request = httptest.NewRequest(http.MethodGet, "/v1/email/threads", nil)
+	request = httptest.NewRequest(http.MethodGet, "/contact/threads", nil)
 	request.Header.Set("Authorization", "Bearer secret")
 	response = httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -78,7 +78,7 @@ func TestLoopbackDevelopmentWithoutConfiguredKeyAllowsRequests(t *testing.T) {
 	flow := mailoauth.NewFlow(&oauth2.Config{}, tokenStore)
 	handler := NewServer(maildomain.NewService(emptyProvider{}, emptyDrafter{}, auditStore), flow, "", slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-	request := httptest.NewRequest(http.MethodGet, "/v1/email/threads", nil)
+	request := httptest.NewRequest(http.MethodGet, "/contact/threads", nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {

@@ -45,6 +45,11 @@ func run() error {
 		TTS:   dashboard.AudioModel{BaseURL: env("VOICE_TTS_BASE_URL", modelBase), APIKey: env("VOICE_TTS_API_KEY", modelKey), Model: os.Getenv("VOICE_TTS_MODEL")},
 		Voice: env("VOICE_TTS_VOICE", "alloy"),
 	}
+	defer service.StopChannels()
+	ids := func(value string) []string { return strings.Fields(strings.ReplaceAll(value, ",", " ")) }
+	if err := service.SetVoiceChannels(ids(os.Getenv("SPIDER_XIAOZHI_VOICE_CHANNELS")), ids(os.Getenv("SPIDER_XIAOZHI_VOICE_CONNECTOR_IDS"))); err != nil {
+		return err
+	}
 	if err := service.ImportEnvironmentModels(modelBase, modelKey, os.Getenv("AGENT_MODEL"), voice); err != nil {
 		return err
 	}
@@ -53,7 +58,7 @@ func run() error {
 	if err := service.StartMemory(ctx); err != nil {
 		return err
 	}
-	defer service.StopMemory()
+	defer func() { service.StopChannels(); service.StopMemory() }()
 	api := dashboard.NewHandler(service, dashboard.HTTPOptions{APIKey: key, Voice: voice, AllowedOrigins: strings.Fields(env("SPIDER_DASHBOARD_ORIGINS", "http://localhost:5174 http://127.0.0.1:5174"))})
 	mux := http.NewServeMux()
 	mux.Handle("/v1/dashboard/", api)

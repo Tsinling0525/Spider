@@ -50,6 +50,7 @@ export interface Pending {
   url: string;
   tool: string;
   arguments: Record<string, unknown>;
+  voice?: { id: string; summary: string; phrase: string; expires_at: string; version: number };
 }
 
 export interface Conversation {
@@ -64,6 +65,7 @@ export interface Conversation {
   version: number;
   created_at: string;
   updated_at: string;
+  source?: { kind: "xiaozhi"; id: string; name: string };
 }
 
 export interface Capabilities { chat: boolean; transcription: boolean; speech: boolean }
