@@ -41,7 +41,7 @@ contain no credentials. The original graph is preserved in
   room-name edit, newsletter/no reply, and unverified payment with an embedded
   malicious instruction. The final payment test produced warnings, requested
   human input, and made no payment or follow-up commitment.
-- Spider `/v1/email/drafts`: generated a reply from the Gmail Dify welcome thread.
+- Spider `/contact/drafts`: generated a reply from the Gmail Dify welcome thread.
 - Mantle browser: opened that email, generated a draft, and displayed editable
   subject/body plus warnings. A subsequent refinement retained the manually
   edited mention of the template guide. Review send displayed the final text;

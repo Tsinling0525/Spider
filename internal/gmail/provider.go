@@ -35,6 +35,18 @@ func NewProvider(oauthConfig *oauth2.Config, tokens TokenStore) *Provider {
 	return &Provider{oauthConfig: oauthConfig, tokens: tokens}
 }
 
+func (p *Provider) AccountEmail(ctx context.Context) (string, error) {
+	service, err := p.service(ctx)
+	if err != nil {
+		return "", err
+	}
+	profile, err := service.Users.GetProfile("me").Context(ctx).Do()
+	if err != nil {
+		return "", fmt.Errorf("get Gmail account: %w", err)
+	}
+	return profile.EmailAddress, nil
+}
+
 func (p *Provider) service(ctx context.Context) (*gmail.Service, error) {
 	token, err := p.tokens.Load()
 	if err != nil {

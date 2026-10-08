@@ -51,9 +51,9 @@ func main() {
 	}
 
 	go func() {
-		logger.Info("server listening", "address", cfg.ListenAddress)
+		logger.Info("contactd listening", "address", cfg.ListenAddress)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Error("server stopped", "error", err)
+			logger.Error("contactd stopped", "error", err)
 			os.Exit(1)
 		}
 	}()

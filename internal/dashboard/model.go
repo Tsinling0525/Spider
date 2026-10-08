@@ -30,38 +30,57 @@ type MCPTool struct {
 }
 
 type Pending struct {
-	ID            string          `json:"id"`
-	CallID        string          `json:"call_id"`
-	ConnectorID   string          `json:"connector_id"`
-	ConnectorName string          `json:"connector_name"`
-	URL           string          `json:"url"`
-	Tool          string          `json:"tool"`
-	Arguments     json.RawMessage `json:"arguments"`
+	ID            string             `json:"id"`
+	CallID        string             `json:"call_id"`
+	ConnectorID   string             `json:"connector_id"`
+	ConnectorName string             `json:"connector_name"`
+	URL           string             `json:"url"`
+	Tool          string             `json:"tool"`
+	Arguments     json.RawMessage    `json:"arguments"`
+	Voice         *VoiceConfirmation `json:"voice,omitempty"`
+}
+
+type VoiceConfirmation struct {
+	ID        string    `json:"id"`
+	Summary   string    `json:"summary"`
+	Phrase    string    `json:"phrase"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Version   int64     `json:"version"`
 }
 
 type Conversation struct {
-	ID           string          `json:"id"`
-	Title        string          `json:"title"`
-	Messages     []agent.Message `json:"messages"`
-	ConnectorIDs []string        `json:"connector_ids"`
-	Pending      *Pending        `json:"pending,omitempty"`
-	Status       string          `json:"status"`
-	Error        string          `json:"error,omitempty"`
-	MemoryError  string          `json:"memory_error,omitempty"`
-	Version      int64           `json:"version"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
+	ID           string              `json:"id"`
+	Title        string              `json:"title"`
+	Messages     []agent.Message     `json:"messages"`
+	ConnectorIDs []string            `json:"connector_ids"`
+	Pending      *Pending            `json:"pending,omitempty"`
+	Status       string              `json:"status"`
+	Error        string              `json:"error,omitempty"`
+	MemoryError  string              `json:"memory_error,omitempty"`
+	Version      int64               `json:"version"`
+	CreatedAt    time.Time           `json:"created_at"`
+	UpdatedAt    time.Time           `json:"updated_at"`
+	Source       *ConversationSource `json:"source,omitempty"`
+}
+
+type ConversationSource struct {
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // Credentials and immutable approval targets are persisted only on the server.
 type diskState struct {
-	Connectors      map[string]Connector               `json:"connectors"`
-	Conversations   map[string]Conversation            `json:"conversations"`
-	ApprovalTargets map[string]Connector               `json:"approval_targets"`
-	ModelProviders  map[string]ModelProvider           `json:"model_providers,omitempty"`
-	ActiveModels    map[ModelCapability]ModelSelection `json:"active_models,omitempty"`
-	ConnectorOAuth  map[string]connectorOAuthFlow      `json:"connector_oauth,omitempty"`
-	MemoryConfig    *MemoryConfig                      `json:"memory_config,omitempty"`
+	Connectors       map[string]Connector               `json:"connectors"`
+	Conversations    map[string]Conversation            `json:"conversations"`
+	ApprovalTargets  map[string]Connector               `json:"approval_targets"`
+	ModelProviders   map[string]ModelProvider           `json:"model_providers,omitempty"`
+	ActiveModels     map[ModelCapability]ModelSelection `json:"active_models,omitempty"`
+	ConnectorOAuth   map[string]connectorOAuthFlow      `json:"connector_oauth,omitempty"`
+	MemoryConfig     *MemoryConfig                      `json:"memory_config,omitempty"`
+	ChannelRequests  map[string]channelRequest          `json:"channel_requests,omitempty"`
+	ChannelSessions  map[string]string                  `json:"channel_sessions,omitempty"`
+	ChannelDecisions map[string]voiceDecision           `json:"channel_decisions,omitempty"`
 }
 
 type ModelCapability string

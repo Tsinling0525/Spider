@@ -4,11 +4,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/spider-mail ./cmd/spider-mail
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/contactd ./cmd/contactd
 
 FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=builder /out/spider-mail /spider-mail
+COPY --from=builder /out/contactd /contactd
 VOLUME ["/data"]
 ENV SPIDER_DATA_DIR=/data
 EXPOSE 8080
-ENTRYPOINT ["/spider-mail"]
+ENTRYPOINT ["/contactd"]

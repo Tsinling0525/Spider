@@ -21,6 +21,7 @@ func NewHandler(service *Service, options HTTPOptions) http.Handler {
 	registerModelRoutes(mux, service)
 	registerBuiltinConnectorRoutes(mux, service, options)
 	registerMemoryRoutes(mux, service)
+	registerChannelRoutes(mux, service)
 	mux.HandleFunc("GET /v1/dashboard/capabilities", func(w http.ResponseWriter, r *http.Request) {
 		_, err := service.chatBackend()
 		voice := service.voiceOptions(options.Voice)
