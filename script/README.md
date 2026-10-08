@@ -1,3 +1,5 @@
+> 历史参考：相关独立服务已移除。本文中的启动命令、环境变量和旧 API 不适用于当前部署；当前助手使用 dashboardd 与连接器，见 [主文档](../README.md)。
+
 # Dify 应用 DSL
 
 这里保存 Spider 配套应用的完整 Dify YAML DSL，可在 Dify 工作室使用「导入 DSL 文件」创建新应用。导出时间：2026-09-24；来源为本地 Dify 1.17.0 的**已发布版本**，DSL 格式 `0.7.0`。原应用与发布版本 ID 记录在 [manifest.json](manifest.json)，仅用于追溯，导入新实例不需要复用这些 ID。

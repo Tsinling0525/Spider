@@ -1,3 +1,5 @@
+> 历史参考：相关独立服务已移除。本文中的启动命令、环境变量和旧 API 不适用于当前部署；当前助手使用 dashboardd 与连接器，见 [主文档](../../README.md)。
+
 # Life Food API
 
 `lifed` 是 Spider 的独立生活服务，不依赖 Gmail OAuth。

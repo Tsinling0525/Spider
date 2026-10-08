@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-// Each agentd instance must have its own store. The store contains sensitive
+// Each Runtime instance must have its own store. The store contains sensitive
 // mail and calendar data and is never used for credentials.
 type fileStore struct{ path string }
 

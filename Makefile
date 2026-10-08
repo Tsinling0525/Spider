@@ -1,25 +1,11 @@
-.PHONY: build build-llmd build-agentd build-dashboardd build-dashboard build-xiaozhi-bridge run-xiaozhi-bridge test run run-llmd run-agentd run-dashboardd dev-dashboard
+.PHONY: build build-dashboardd build-dashboard build-xiaozhi-bridge run-xiaozhi-bridge test run run-dashboardd dev-dashboard
 
-build:
-	go build -o contactd ./cmd/contactd
+build: build-dashboard build-dashboardd
 
 test:
 	go test ./...
 
-run:
-	go run ./cmd/contactd
-
-build-llmd:
-	go build -o bin/llmd ./cmd/llmd
-
-run-llmd:
-	go run ./cmd/llmd
-
-build-agentd:
-	go build -o bin/agentd ./cmd/agentd
-
-run-agentd:
-	go run ./cmd/agentd
+run: run-dashboardd
 
 build-dashboardd:
 	go build -o bin/dashboardd ./cmd/dashboardd

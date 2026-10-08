@@ -1,0 +1,12 @@
+.git
+.worktrees
+.env*
+**/.env*
+data
+bin
+node_modules
+**/node_modules
+dashboard/dist
+llama.cpp
+*.log
+.DS_Store

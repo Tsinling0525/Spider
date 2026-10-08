@@ -1,3 +1,5 @@
+> 历史参考：相关独立服务已移除。本文中的启动命令、环境变量和旧 API 不适用于当前部署；当前助手使用 dashboardd 与连接器，见 [主文档](../../README.md)。
+
 # Local Email Reply Refiner integration
 
 The existing app `e29c4e9c-e2a9-49d7-92e6-53bd889482d0` is a Chatflow,

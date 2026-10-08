@@ -1,6 +1,6 @@
 # 小智官方固件接入 Spider Dashboard
 
-这条路径不经过 Dify、lifed 或旧的 spider-device 语音服务：
+这条路径由 dashboardd 统一执行模型和连接器调用：
 
 ```text
 ESP32 官方小智固件 → 小智官方语音 / 智能体服务
